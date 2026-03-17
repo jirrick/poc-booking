@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PocBooking.BookingSimulator.Data;
@@ -326,12 +327,16 @@ public static class MessagingEndpoints
 [EditorBrowsable(EditorBrowsableState.Never)]
 internal sealed class PostMessageBody
 {
+    [JsonPropertyName("message")]
     public PostMessageInner? Message { get; set; }
 }
 
 [EditorBrowsable(EditorBrowsableState.Never)]
 internal sealed class PostMessageInner
 {
+    [JsonPropertyName("content")]
     public string? Content { get; set; }
+
+    [JsonPropertyName("attachment_ids")]
     public string[]? AttachmentIds { get; set; }
 }
