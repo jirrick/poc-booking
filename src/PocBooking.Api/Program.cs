@@ -28,11 +28,11 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
 
-// Ensure SQLite DB and schema exist (POC: no migrations)
+// Apply any pending EF Core migrations (creates the DB on first run, upgrades on schema changes).
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.EnsureCreated();
+    await db.Database.MigrateAsync();
 }
 
 app.MapGet("/api", () => Results.Ok(new { service = "PocBooking.Api", status = "running" }));
