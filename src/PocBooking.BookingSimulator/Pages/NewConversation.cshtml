@@ -1,0 +1,25 @@
+@page "/NewConversation/{propertyId}"
+@model NewConversationModel
+@{
+    ViewData["Title"] = "New conversation";
+}
+
+<h2>New conversation</h2>
+<p><strong>@Model.PropertyName</strong></p>
+<p><a href="/">← Back to conversations</a></p>
+
+@if (TempData["Error"] is string err)
+{
+    <p style="color: red;">@err</p>
+}
+
+<form method="post" asp-route-propertyId="@Model.PropertyId">
+    <label>Conversation reference (reservation ID):</label>
+    <input type="text" name="conversationReference" value="@Model.ConversationReference" placeholder="Auto-generated" required />
+    <label>Conversation type:</label>
+    <select name="conversationType">
+        <option value="reservation" selected="@(Model.ConversationType == "reservation")">Reservation</option>
+        <option value="request_to_book" selected="@(Model.ConversationType == "request_to_book")">Request to book</option>
+    </select>
+    <button type="submit">Create conversation</button>
+</form>

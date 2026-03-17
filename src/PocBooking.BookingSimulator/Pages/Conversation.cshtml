@@ -34,11 +34,12 @@ else
 }
 
 <h3>Send message</h3>
+<p class="meta">You are simulating the <strong>guest</strong> here; your POC is the property and will receive these messages via webhook.</p>
 <form method="post" asp-page-handler="SendMessage" asp-route-propertyId="@Model.PropertyId" asp-route-conversationId="@Model.ConversationId">
     <label>Send as:</label>
     <select name="sendAs">
-        <option value="hotel" selected="@(Model.SendAs == "hotel")">Property (Hotel)</option>
-        <option value="guest" selected="@(Model.SendAs == "guest")">Guest</option>
+        <option value="guest" selected="@(Model.SendAs == "guest")">Guest (simulator → POC)</option>
+        <option value="hotel" selected="@(Model.SendAs == "hotel")">Property (hotel)</option>
     </select>
     <label>Content:</label>
     <textarea name="content" placeholder="Type your message..." required>@Model.MessageContent</textarea>

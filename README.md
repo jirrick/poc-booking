@@ -26,7 +26,7 @@ Proof-of-concept repository for integrating with **Booking.com Messaging API** v
 | Project | Purpose | Port (HTTP) |
 |---------|---------|-------------|
 | **PocBooking.Api** | Your POC: webhook receiver, persistence, idempotency. | 5154 |
-| **PocBooking.BookingSimulator** | Simulates Booking.com CNS: sends notifications to the POC. | 5060 |
+| **PocBooking.BookingSimulator** | Simulates Booking.com CNS: sends notifications to the POC. | 5160 |
 
 ## Tech Stack
 
@@ -51,7 +51,7 @@ Start the POC first, then:
 dotnet run --project src/PocBooking.BookingSimulator
 ```
 
-- **Web UI (root)**: Open `http://localhost:5060/` in a browser to list properties and conversations, open a thread, and send messages (as guest or property). Sending a message persists it and triggers a CNS webhook to the POC (when `SendWebhookOnNewMessage` is true).
+- **Web UI (root)**: Open `http://localhost:5160/` in a browser to list properties and conversations, open a thread, and send messages (as guest or property). Sending a message persists it and triggers a CNS webhook to the POC (when `SendWebhookOnNewMessage` is true).
 - **API info**: `GET /api` — service info.
 
 **Booking-style API** (base path `/messaging`; optional `Accept-Version: 1.2`):
@@ -82,8 +82,8 @@ dotnet run --project src/PocBooking.BookingSimulator
 Example: trigger a simulated delivery (POC and Simulator both running):
 
 ```bash
-curl -X POST http://localhost:5060/api/simulate/deliver
-curl -X POST http://localhost:5060/api/simulate/deliver -H "Content-Type: application/json" -d '{"content":"Custom message"}'
+curl -X POST http://localhost:5160/api/simulate/deliver
+curl -X POST http://localhost:5160/api/simulate/deliver -H "Content-Type: application/json" -d '{"content":"Custom message"}'
 ```
 
 The POC’s SQLite database is created automatically on startup. Schema includes `NotificationInbox` for idempotency (see `PocBooking.Api/Data/NotificationInbox.cs`). The simulator’s database is created and seeded (one property, participants, one conversation with a welcome message) on first run.

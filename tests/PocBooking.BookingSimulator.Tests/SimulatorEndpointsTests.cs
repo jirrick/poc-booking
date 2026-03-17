@@ -129,6 +129,16 @@ public sealed class SimulatorEndpointsTests : IClassFixture<SimulatorWebApplicat
     }
 
     [Fact]
+    public async Task GET_new_conversation_page_returns_html()
+    {
+        var response = await _client.GetAsync($"/NewConversation/{PropertyId}");
+        response.EnsureSuccessStatusCode();
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Contains("New conversation", html);
+        Assert.Contains("Conversation reference", html);
+    }
+
+    [Fact]
     public async Task GET_messaging_properties_unknown_returns_404()
     {
         var response = await _client.GetAsync("/messaging/properties/unknown-property-999/conversations");

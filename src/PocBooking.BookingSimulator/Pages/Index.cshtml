@@ -16,6 +16,7 @@
                 <option value="@p.PropertyId" selected="@(p.PropertyId == Model.SelectedPropertyId)">@p.Name (@p.PropertyId)</option>
             }
         </select>
+        <a asp-page="/NewConversation" asp-route-propertyId="@Model.SelectedPropertyId" style="margin-left: 1rem;">+ New conversation</a>
     </p>
 
     @if (Model.Conversations.Count == 0)

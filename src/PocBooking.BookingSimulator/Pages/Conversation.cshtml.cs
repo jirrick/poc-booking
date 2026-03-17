@@ -21,7 +21,7 @@ public class ConversationModel : PageModel
     public string ConversationId { get; set; } = "";
     public string? PropertyName { get; set; }
     public List<MessageVm> Messages { get; set; } = new();
-    public string? SendAs { get; set; } = "hotel";
+    public string? SendAs { get; set; } = "guest";
     public string? MessageContent { get; set; }
 
     public async Task<IActionResult> OnGetAsync(string propertyId, string conversationId, CancellationToken ct = default)
