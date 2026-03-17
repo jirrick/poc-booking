@@ -44,7 +44,9 @@ dotnet run --project src/PocBooking.AppHost
 
 - **POC API**: http://localhost:5154  
 - **Simulator**: http://localhost:5160  
-- **Dashboard**: URL shown in the console (e.g. http://localhost:15xxx)
+- **Dashboard**: URL shown in the console (e.g. http://localhost:15300 with default launch profile)
+
+If you see *Address already in use* for 5154 or 5160, stop any other running instances of the Api or Simulator (or the previous AppHost), or run `lsof -i :5154` / `lsof -i :5160` to find and kill the process.
 
 ### Run the POC (Api) standalone
 
