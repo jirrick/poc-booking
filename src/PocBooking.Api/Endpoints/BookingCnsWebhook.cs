@@ -1,8 +1,11 @@
 using System.Text;
 using System.Text.Json;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
+using PocBooking.Api.Auth;
 using PocBooking.Api.Data;
 using PocBooking.Api.Models;
+using PocBooking.Api.Processing;
 
 namespace PocBooking.Api.Endpoints;
 
@@ -36,18 +39,18 @@ public static class BookingCnsWebhook
     private static async Task<IResult> Handle(
         HttpRequest request,
         AppDbContext db,
-        IConfiguration config,
+        IMediator mediator,
+        ICnsSignatureValidator signatureValidator,
         ILogger<BookingCnsWebhookEndpoint> logger,
         CancellationToken ct)
     {
-        // 1) Optional auth: require Bearer for webhook (POC: no JWT validation, just presence)
-        if (config.GetValue<bool>("Booking:Cns:RequireBearer", true))
+        // 1) JWT validation (before idempotency/persist): validate Bearer token when config is set
+        var authHeader = request.Headers.Authorization.FirstOrDefault();
+        var validationError = await signatureValidator.ValidateBearerAsync(authHeader, ct);
+        if (validationError != null)
         {
-            if (!request.Headers.Authorization.Any())
-                return Results.Json(new { error = "Missing Authorization header" }, statusCode: 401);
-            var auth = request.Headers.Authorization.ToString();
-            if (!auth.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-                return Results.Json(new { error = "Invalid Authorization scheme" }, statusCode: 401);
+            logger.LogWarning("CNS webhook auth failed: {Error}", validationError);
+            return Results.Json(new { error = validationError }, statusCode: 401);
         }
 
         // 2) Read and parse body
@@ -128,6 +131,8 @@ public static class BookingCnsWebhook
         };
         db.NotificationInbox.Add(inbox);
         await db.SaveChangesAsync(ct);
+
+        await mediator.Send(new ProcessCnsNotificationCommand(inbox.Id), ct);
 
         logger.LogInformation(
             "Booking CNS notification received: Type={Type}, Uuid={Uuid}, MessageId={MessageId}",

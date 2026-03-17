@@ -11,6 +11,8 @@ builder.Services.AddHttpClient();
 var conn = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContextFactory<SimulatorDbContext>(options => options.UseSqlite(conn));
 builder.Services.AddScoped<SimulatorDbContext>(sp => sp.GetRequiredService<IDbContextFactory<SimulatorDbContext>>().CreateDbContext());
+builder.Services.Configure<PocWebhookJwtOptions>(builder.Configuration.GetSection(PocWebhookJwtOptions.SectionName));
+builder.Services.AddSingleton<IPocWebhookJwtFactory, PocWebhookJwtFactory>();
 builder.Services.AddScoped<IPocWebhookSender, PocWebhookSender>();
 builder.Services.AddRazorPages().AddRazorRuntimeCompilation();
 

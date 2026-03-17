@@ -1,0 +1,33 @@
+@page "/Conversation"
+@model PocBooking.Api.Pages.ConversationModel
+@{
+    ViewData["Title"] = "Conversation";
+}
+<div class="container mt-4">
+    <h1>Thread</h1>
+    <p><a asp-page="/Conversations" asp-route-propertyId="@Model.PropertyId">Back to conversations</a></p>
+    @if (!string.IsNullOrEmpty(Model.Error))
+    {
+        <p class="text-danger">@Model.Error</p>
+    }
+    else
+    {
+        <p><strong>Conversation:</strong> @Model.ConversationId @if (!string.IsNullOrEmpty(Model.ConversationReference)) { <span>(ref: @Model.ConversationReference)</span> }</p>
+        <div class="mb-4">
+            @foreach (var m in Model.Messages)
+            {
+                <div class="border-bottom py-2">
+                    <small>@m.TimestampUtc – @m.SenderName (@m.SenderType)</small>
+                    <div>@m.Content</div>
+                </div>
+            }
+        </div>
+        <form method="post" asp-page-handler="SendMessage" asp-route-propertyId="@Model.PropertyId" asp-route-conversationId="@Model.ConversationId">
+            <label for="contentText">Reply as property:</label><br />
+            <textarea name="content" id="contentText" rows="3" required></textarea>
+            <button type="submit" class="btn btn-primary mt-2">Send</button>
+        </form>
+        @if (TempData["Success"] != null) { <p class="text-success mt-2">@TempData["Success"]</p> }
+        @if (TempData["Error"] != null) { <p class="text-danger mt-2">@TempData["Error"]</p> }
+    }
+</div>

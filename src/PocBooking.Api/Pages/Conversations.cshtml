@@ -1,0 +1,36 @@
+@page "/Conversations"
+@model PocBooking.Api.Pages.ConversationsModel
+@{
+    ViewData["Title"] = "Conversations";
+}
+<div class="container mt-4">
+    <h1>Conversations</h1>
+    <p><a asp-page="/Index">Back</a></p>
+    @if (!string.IsNullOrEmpty(Model.Error))
+    {
+        <p class="text-danger">@Model.Error</p>
+    }
+    else if (Model.Conversations.Count == 0)
+    {
+        <p>No conversations. Ensure <code>Booking:ApiBaseUrl</code> points to the simulator (e.g. http://localhost:5160) and the property has conversations.</p>
+    }
+    else
+    {
+        <ul>
+            @foreach (var c in Model.Conversations)
+            {
+                <li>
+                    <a asp-page="/Conversation" asp-route-propertyId="@Model.PropertyId" asp-route-conversationId="@c.ConversationId">
+                        @c.ConversationId
+                    </a>
+                    @if (!string.IsNullOrEmpty(c.ConversationReference)) { <span>(ref: @c.ConversationReference)</span> }
+                    @if (c.LastMessagePreview != null) { <span> – @c.LastMessagePreview</span> }
+                </li>
+            }
+        </ul>
+        @if (!string.IsNullOrEmpty(Model.NextPageId))
+        {
+            <p><a asp-page="/Conversations" asp-route-propertyId="@Model.PropertyId" asp-route-pageId="@Model.NextPageId">Next page</a></p>
+        }
+    }
+</div>

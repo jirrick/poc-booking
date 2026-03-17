@@ -10,6 +10,7 @@ public sealed class PocWebhookSender(
     IHttpClientFactory httpClientFactory,
     IConfiguration config,
     IDbContextFactory<SimulatorDbContext> dbFactory,
+    IPocWebhookJwtFactory jwtFactory,
     ILogger<PocWebhookSender> logger) : IPocWebhookSender
 {
     private static readonly JsonSerializerOptions JsonOptions = new();
@@ -41,7 +42,8 @@ public sealed class PocWebhookSender(
         }
 
         var webhookUrl = $"{baseUrl}/api/webhooks/booking/cns";
-        var bearerToken = config["BookingSimulator:PocBearerToken"];
+        // When JWT config is set (JwtSigningKey, JwtIssuer, JwtAudience), use real JWT; otherwise fallback to opaque PocBearerToken
+        var bearerToken = jwtFactory.CreateBearerToken() ?? config["BookingSimulator:PocBearerToken"];
 
         using var client = httpClientFactory.CreateClient();
         var request = new HttpRequestMessage(HttpMethod.Post, webhookUrl)

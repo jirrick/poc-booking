@@ -39,9 +39,10 @@ Proof-of-concept repository for integrating with **Booking.com Messaging API** v
 dotnet run --project src/PocBooking.Api
 ```
 
-- Root: `GET /` — service info
-- Health: `GET /api/health` — SQLite connectivity
-- **Booking CNS webhook**: `POST /api/webhooks/booking/cns` — receives CNS payloads; idempotent by `metadata.uuid` and `payload.message_id`; stores raw JSON in `NotificationInbox`. For local testing, set `Booking:Cns:RequireBearer` to `false` in `appsettings.Development.json`.
+- Root: `GET /` — redirects to property UI (`/Index`).
+- **Property UI**: Razor Pages at `/Index`, `/Conversations`, `/Conversation`, `/Inbox` — conversation list and thread (from configurable Booking API), send reply as property, and received-webhooks inbox.
+- Health: `GET /api/health` — SQLite connectivity.
+- **Booking CNS webhook**: `POST /api/webhooks/booking/cns` — receives CNS payloads; JWT validation when `Booking:Cns:JwtSigningKey` is set; idempotent by `metadata.uuid` and `payload.message_id`; persists to `NotificationInbox`, then processes (enrichment + mappings).
 
 ### Run the Booking.com simulator
 
@@ -75,7 +76,8 @@ dotnet run --project src/PocBooking.BookingSimulator
 |-----|-------------|
 | `ConnectionStrings:DefaultConnection` | SQLite path (e.g. `Data Source=booking-simulator.db`). |
 | `BookingSimulator:PocWebhookBaseUrl` | POC base URL (e.g. `http://localhost:5154`). |
-| `BookingSimulator:PocBearerToken` | Optional Bearer token when calling the POC webhook. |
+| `BookingSimulator:PocBearerToken` | Optional opaque Bearer token when calling the POC webhook (used when JWT config is not set). |
+| `BookingSimulator:JwtSigningKey`, `JwtIssuer`, `JwtAudience` | When set, simulator **generates a short-lived JWT** (same secret/issuer/audience as POC) and sends it as Bearer when calling the POC webhook. Prefer this for parity with production. |
 | `BookingSimulator:SendWebhookOnNewMessage` | If `true` (default), send webhook after each new message (API or UI). |
 | `BookingSimulator:ApiKey` | Optional. If set, `/messaging/*` requests must send `Authorization: Bearer <ApiKey>`. |
 
@@ -86,7 +88,26 @@ curl -X POST http://localhost:5160/api/simulate/deliver
 curl -X POST http://localhost:5160/api/simulate/deliver -H "Content-Type: application/json" -d '{"content":"Custom message"}'
 ```
 
-The POC’s SQLite database is created automatically on startup. Schema includes `NotificationInbox` for idempotency (see `PocBooking.Api/Data/NotificationInbox.cs`). The simulator’s database is created and seeded (one property, participants, one conversation with a welcome message) on first run.
+The POC’s SQLite database is created automatically on startup. Schema includes `NotificationInbox`, `ReservationMapping`, `GuestMapping`, and `ProcessedMessage` (enriched view). The simulator’s database is created and seeded (one property, participants, one conversation with a welcome message) on first run.
+
+### Configuration: Simulator vs Real Booking
+
+The POC is designed so that **only configuration** changes are needed to switch between the Booking simulator and the real Booking.com API. No “if simulator” branches in code.
+
+| Concern | Simulator (current) | Real Booking (config change) |
+|--------|----------------------|------------------------------|
+| **Webhook JWT** | Our secret + our issuer/audience. Set `Booking:Cns:JwtSigningKey`, `Booking:Cns:JwtIssuer`, `Booking:Cns:JwtAudience` in POC; same values as `BookingSimulator:JwtSigningKey`, `JwtIssuer`, `JwtAudience` in simulator. | Booking’s issuer + JWKS or production signing key. Set `Booking:Cns:JwtIssuer` / `JwtAudience` to Booking’s values; use `JwksUrl` or production key (validator supports symmetric key now; extend for JWKS when needed). |
+| **Property API (UI)** | `Booking:ApiBaseUrl` = simulator URL (e.g. `http://localhost:5160`). Optional `Booking:ApiKey` if simulator has `BookingSimulator:ApiKey` set. | `Booking:ApiBaseUrl` = Booking’s API base; auth per Booking docs (e.g. token endpoint + `Booking:ApiKey`). |
+
+**POC (appsettings)**  
+- `Booking:ApiBaseUrl` — outbound Booking API base (conversations, thread, send reply).  
+- `Booking:ApiKey` — optional Bearer token for property API.  
+- `Booking:Cns:JwtSigningKey`, `JwtIssuer`, `JwtAudience` — webhook JWT validation (symmetric). `RequireSignatureValidation`: set to `true` when key is set.  
+
+**Simulator (appsettings)**  
+- When calling the POC webhook: set `BookingSimulator:JwtSigningKey`, `JwtIssuer`, `JwtAudience` (same as POC) to send a real JWT as Bearer instead of an opaque token.  
+- `BookingSimulator:PocWebhookBaseUrl` — POC base URL.  
+- `BookingSimulator:ApiKey` — optional; if set, simulator’s `/messaging/*` requires Bearer (match with POC’s `Booking:ApiKey` when POC UI calls simulator).
 
 ## References
 

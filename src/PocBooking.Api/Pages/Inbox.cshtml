@@ -1,0 +1,42 @@
+@page "/Inbox"
+@model PocBooking.Api.Pages.InboxModel
+@{
+    ViewData["Title"] = "Received webhooks (Inbox)";
+}
+<div class="container mt-4">
+    <h1>Received webhooks (Inbox)</h1>
+    <p><a asp-page="/Index">Back</a></p>
+    <p>Last notifications received by the POC. Optional: refresh the page to see new entries.</p>
+    @if (Model.Items.Count == 0)
+    {
+        <p>No notifications yet. Send a message from the simulator to trigger a webhook.</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>NotificationUuid</th>
+                    <th>MessageId</th>
+                    <th>Type</th>
+                    <th>ReceivedAtUtc</th>
+                    <th>Internal reservation ID</th>
+                    <th>Internal guest ID</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in Model.Items)
+                {
+                    <tr>
+                        <td>@row.NotificationUuid</td>
+                        <td>@row.MessageId</td>
+                        <td>@row.Type</td>
+                        <td>@row.ReceivedAtUtc</td>
+                        <td>@(row.InternalReservationId?.ToString() ?? "–")</td>
+                        <td>@(row.InternalGuestId?.ToString() ?? "–")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>

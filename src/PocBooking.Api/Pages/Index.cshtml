@@ -1,0 +1,13 @@
+@page
+@model PocBooking.Api.Pages.IndexModel
+@{
+    ViewData["Title"] = "POC Booking – Property";
+}
+<div class="container mt-4">
+    <h1>POC Booking API</h1>
+    <p>Property UI: view conversations (from Booking API) and received webhooks (inbox).</p>
+    <ul>
+        <li><a asp-page="/Conversations" asp-route-propertyId="@Model.DefaultPropertyId">Conversations</a> – list and open threads (configurable Booking API)</li>
+        <li><a asp-page="/Inbox">Received webhooks (Inbox)</a> – last notifications received by the POC</li>
+    </ul>
+</div>
