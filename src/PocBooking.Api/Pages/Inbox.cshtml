@@ -1,46 +1,53 @@
 @page "/Inbox"
 @model PocBooking.Api.Pages.InboxModel
 @{
-    ViewData["Title"] = "Received webhooks (Inbox)";
+    ViewData["Title"] = "Webhook Inbox";
 }
-<div class="container mt-4">
-    <h1>Received webhooks (Inbox)</h1>
-    <p><a asp-page="/Index">Back</a></p>
-    <p>Last notifications received by the POC. Optional: refresh the page to see new entries.</p>
-    @if (Model.Items.Count == 0)
-    {
-        <p>No notifications yet. Send a message from the simulator to trigger a webhook.</p>
-    }
-    else
-    {
-        <table>
-            <thead>
-                <tr>
-                    <th>Received</th>
-                    <th>Type</th>
-                    <th>Guest name</th>
-                    <th>Confirmation #</th>
-                    <th>Internal reservation ID</th>
-                    <th>Internal guest ID</th>
-                    <th>Message ID</th>
-                    <th>Notification UUID</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var row in Model.Items)
-                {
+
+<h4 class="mb-1">Webhook Inbox</h4>
+<p class="text-muted small mb-3">CNS notifications received by this POC service. Refresh to see new entries.</p>
+
+@if (Model.Items.Count == 0)
+{
+    <div class="alert alert-info">No notifications yet. Send a message from the simulator to trigger a webhook.</div>
+}
+else
+{
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0">
+                <thead class="table-light">
                     <tr>
-                        <td>@row.ReceivedAtUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
-                        <td>@row.Type</td>
-                        <td>@(row.GuestName ?? "–")</td>
-                        <td>@(row.ConfirmationNumber ?? "–")</td>
-                        <td><code>@(row.InternalReservationId?.ToString() ?? "–")</code></td>
-                        <td><code>@(row.InternalGuestId?.ToString() ?? "–")</code></td>
-                        <td><small>@row.MessageId</small></td>
-                        <td><small>@row.NotificationUuid</small></td>
+                        <th>Received (UTC)</th>
+                        <th>Type</th>
+                        <th>Guest name</th>
+                        <th>Confirmation #</th>
+                        <th>Internal reservation</th>
+                        <th>Internal guest</th>
+                        <th class="text-muted">Message ID</th>
                     </tr>
-                }
-            </tbody>
-        </table>
-    }
-</div>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.Items)
+                    {
+                        <tr>
+                            <td class="text-nowrap">@row.ReceivedAtUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            <td><span class="badge bg-secondary">@row.Type</span></td>
+                            <td>@(row.GuestName ?? "–")</td>
+                            <td>
+                                @if (row.ConfirmationNumber != null)
+                                {
+                                    <span class="badge bg-primary">@row.ConfirmationNumber</span>
+                                }
+                                else { <span class="text-muted">–</span> }
+                            </td>
+                            <td><code class="small">@(row.InternalReservationId?.ToString() ?? "–")</code></td>
+                            <td><code class="small">@(row.InternalGuestId?.ToString() ?? "–")</code></td>
+                            <td class="text-muted"><small>@row.MessageId</small></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

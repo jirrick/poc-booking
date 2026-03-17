@@ -3,11 +3,26 @@
 @{
     ViewData["Title"] = "POC Booking – Property";
 }
-<div class="container mt-4">
-    <h1>POC Booking API</h1>
-    <p>Property UI: view conversations (from Booking API) and received webhooks (inbox).</p>
-    <ul>
-        <li><a asp-page="/Conversations" asp-route-propertyId="@Model.DefaultPropertyId">Conversations</a> – list and open threads (configurable Booking API)</li>
-        <li><a asp-page="/Inbox">Received webhooks (Inbox)</a> – last notifications received by the POC</li>
-    </ul>
+
+<div class="row g-3 mt-1">
+    <div class="col-md-6">
+        <a asp-page="/Conversations" asp-route-propertyId="@Model.DefaultPropertyId" class="text-decoration-none">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">💬 Conversations</h5>
+                    <p class="card-text text-muted small">Browse and reply to guest threads via the Booking API (simulator or real).</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-6">
+        <a asp-page="/Inbox" class="text-decoration-none">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">📬 Webhook Inbox</h5>
+                    <p class="card-text text-muted small">CNS webhook notifications received by this service, enriched with internal guest and reservation mappings.</p>
+                </div>
+            </div>
+        </a>
+    </div>
 </div>

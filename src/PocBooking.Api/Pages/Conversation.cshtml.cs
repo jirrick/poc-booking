@@ -1,20 +1,28 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 using PocBooking.Api.BookingApi;
+using PocBooking.Api.Data;
 
 namespace PocBooking.Api.Pages;
 
 public class ConversationModel : PageModel
 {
     private readonly IBookingApiClient _bookingApi;
+    private readonly AppDbContext _db;
 
-    public ConversationModel(IBookingApiClient bookingApi) => _bookingApi = bookingApi;
+    public ConversationModel(IBookingApiClient bookingApi, AppDbContext db)
+    {
+        _bookingApi = bookingApi;
+        _db = db;
+    }
 
     public string PropertyId { get; set; } = "";
     public string ConversationId { get; set; } = "";
     public string? ConversationReference { get; set; }
     public string? Error { get; set; }
     public List<MessageVm> Messages { get; set; } = new();
+    public LocalMappingVm? LocalMapping { get; set; }
 
     public async Task<IActionResult> OnGetAsync(string propertyId, string conversationId, CancellationToken ct = default)
     {
@@ -28,6 +36,7 @@ public class ConversationModel : PageModel
         }
 
         ConversationReference = response.Data.ConversationReference;
+
         foreach (var m in response.Data.Messages ?? [])
         {
             Messages.Add(new MessageVm
@@ -37,10 +46,47 @@ public class ConversationModel : PageModel
                 TimestampUtc = ParseTimestamp(m.Timestamp),
                 SenderName = m.Sender?.Metadata?.Name ?? "",
                 SenderType = m.Sender?.Metadata?.ParticipantType ?? "",
+                SenderParticipantId = m.Sender?.ParticipantId ?? "",
             });
         }
 
+        await LoadLocalMappingAsync(response.Data, ct);
+
         return Page();
+    }
+
+    private async Task LoadLocalMappingAsync(ConversationDetailResponse detail, CancellationToken ct)
+    {
+        // Match reservation by conversation_reference
+        var convRef = detail.ConversationReference?.Trim();
+        if (string.IsNullOrEmpty(convRef)) return;
+
+        var reservation = await _db.ReservationMappings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.BookingReservationId == convRef, ct);
+
+        if (reservation == null) return;
+
+        // Find guest participant: prefer participants list, fall back to message senders
+        var guestParticipantId = detail.Participants
+            .FirstOrDefault(p => p.Metadata?.ParticipantType == "guest")?.ParticipantId
+            ?? Messages.FirstOrDefault(m => m.SenderType == "guest")?.SenderParticipantId;
+
+        GuestMapping? guest = null;
+        if (!string.IsNullOrEmpty(guestParticipantId))
+            guest = await _db.GuestMappings
+                .AsNoTracking()
+                .FirstOrDefaultAsync(g => g.BookingGuestId == guestParticipantId, ct);
+
+        LocalMapping = new LocalMappingVm
+        {
+            ConfirmationNumber = reservation.ConfirmationNumber,
+            InternalReservationId = reservation.InternalReservationId,
+            BookingReservationId = reservation.BookingReservationId,
+            GuestName = guest?.GuestName,
+            InternalGuestId = guest?.InternalGuestId,
+            BookingGuestId = guest?.BookingGuestId,
+        };
     }
 
     public async Task<IActionResult> OnPostSendMessageAsync(string propertyId, string conversationId, string? content, CancellationToken ct = default)
@@ -78,5 +124,16 @@ public class ConversationModel : PageModel
         public DateTime TimestampUtc { get; set; }
         public string SenderName { get; set; } = "";
         public string SenderType { get; set; } = "";
+        public string SenderParticipantId { get; set; } = "";
+    }
+
+    public class LocalMappingVm
+    {
+        public string ConfirmationNumber { get; set; } = "";
+        public Guid InternalReservationId { get; set; }
+        public string BookingReservationId { get; set; } = "";
+        public string? GuestName { get; set; }
+        public Guid? InternalGuestId { get; set; }
+        public string? BookingGuestId { get; set; }
     }
 }

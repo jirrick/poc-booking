@@ -3,34 +3,46 @@
 @{
     ViewData["Title"] = "Conversations";
 }
-<div class="container mt-4">
-    <h1>Conversations</h1>
-    <p><a asp-page="/Index">Back</a></p>
-    @if (!string.IsNullOrEmpty(Model.Error))
-    {
-        <p class="text-danger">@Model.Error</p>
-    }
-    else if (Model.Conversations.Count == 0)
-    {
-        <p>No conversations. Ensure <code>Booking:ApiBaseUrl</code> points to the simulator (e.g. http://localhost:5160) and the property has conversations.</p>
-    }
-    else
-    {
-        <ul>
-            @foreach (var c in Model.Conversations)
-            {
-                <li>
-                    <a asp-page="/Conversation" asp-route-propertyId="@Model.PropertyId" asp-route-conversationId="@c.ConversationId">
-                        @c.ConversationId
-                    </a>
-                    @if (!string.IsNullOrEmpty(c.ConversationReference)) { <span>(ref: @c.ConversationReference)</span> }
-                    @if (c.LastMessagePreview != null) { <span> – @c.LastMessagePreview</span> }
-                </li>
-            }
-        </ul>
-        @if (!string.IsNullOrEmpty(Model.NextPageId))
+
+<h4 class="mb-3">Conversations <span class="badge bg-secondary">property @Model.PropertyId</span></h4>
+
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="alert alert-warning">
+        @Model.Error
+        <div class="small mt-1">Check that <code>Booking:ApiBaseUrl</code> points to the simulator (e.g. http://localhost:5160).</div>
+    </div>
+}
+else if (Model.Conversations.Count == 0)
+{
+    <div class="alert alert-info">No conversations yet. Send a message from the simulator to create one.</div>
+}
+else
+{
+    <div class="list-group mb-3">
+        @foreach (var c in Model.Conversations)
         {
-            <p><a asp-page="/Conversations" asp-route-propertyId="@Model.PropertyId" asp-route-pageId="@Model.NextPageId">Next page</a></p>
+            <a asp-page="/Conversation" asp-route-propertyId="@Model.PropertyId" asp-route-conversationId="@c.ConversationId"
+               class="list-group-item list-group-item-action">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="fw-semibold">@c.ConversationId</div>
+                        @if (!string.IsNullOrEmpty(c.ConversationReference))
+                        {
+                            <small class="text-muted">ref: <code>@c.ConversationReference</code></small>
+                        }
+                    </div>
+                    @if (c.LastMessagePreview != null)
+                    {
+                        <span class="text-muted small ms-3 text-truncate" style="max-width:320px">@c.LastMessagePreview</span>
+                    }
+                </div>
+            </a>
         }
+    </div>
+    @if (!string.IsNullOrEmpty(Model.NextPageId))
+    {
+        <a asp-page="/Conversations" asp-route-propertyId="@Model.PropertyId" asp-route-pageId="@Model.NextPageId"
+           class="btn btn-outline-primary btn-sm">Next page →</a>
     }
-</div>
+}
