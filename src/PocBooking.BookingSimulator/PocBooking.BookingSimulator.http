@@ -1,0 +1,6 @@
+@PocBooking.BookingSimulator_HostAddress = http://localhost:5183
+
+GET {{PocBooking.BookingSimulator_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
