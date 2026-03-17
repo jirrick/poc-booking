@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PocBooking.Api.Data;
+using PocBooking.Api.Endpoints;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,5 +27,7 @@ app.MapGet("/api/health", async (AppDbContext db, CancellationToken ct) =>
         ? Results.Ok(new { status = "healthy", database = "connected" })
         : Results.StatusCode(503);
 });
+
+app.MapBookingCnsWebhook();
 
 app.Run();

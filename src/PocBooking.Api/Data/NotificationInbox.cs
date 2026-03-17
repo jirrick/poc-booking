@@ -10,4 +10,6 @@ public class NotificationInbox
     public string MessageId { get; set; } = string.Empty;
     public string Type { get; set; } = string.Empty;
     public DateTime ReceivedAtUtc { get; set; }
+    /// <summary>Raw JSON body for replay/debug.</summary>
+    public string? PayloadJson { get; set; }
 }
