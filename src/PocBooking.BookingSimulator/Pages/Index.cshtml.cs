@@ -23,8 +23,7 @@ public class IndexModel : PageModel
 
         var convs = await _db.Conversations
             .Where(c => c.PropertyId == prop.Id)
-            .OrderByDescending(c => c.Messages.Select(m => m.TimestampUtc).DefaultIfEmpty(DateTime.MinValue).Max())
-            .ThenByDescending(c => c.Id)
+            .OrderByDescending(c => c.Id)
             .Take(100)
             .ToListAsync(ct);
 

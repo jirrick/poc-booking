@@ -44,8 +44,7 @@ public static class MessagingEndpoints
 
         var query = db.Conversations
             .Where(c => c.PropertyId == property.Id)
-            .OrderByDescending(c => c.Messages.Select(m => m.TimestampUtc).DefaultIfEmpty(DateTime.MinValue).Max())
-            .ThenByDescending(c => c.Id);
+            .OrderByDescending(c => c.Id);
 
         var pageSize = DefaultPageSize;
         var offset = 0;

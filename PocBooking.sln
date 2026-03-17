@@ -1,4 +1,4 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -11,6 +11,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PocBooking.Api", "src\PocBooking.Api\PocBooking.Api.csproj", "{C6ADDF23-B8D7-438A-ABB7-8973BA3E176C}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PocBooking.BookingSimulator", "src\PocBooking.BookingSimulator\PocBooking.BookingSimulator.csproj", "{F41CF3C1-B908-4FA6-B8AA-07D8DFB7E70C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PocBooking.BookingSimulator.Tests", "tests\PocBooking.BookingSimulator.Tests\PocBooking.BookingSimulator.Tests.csproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -46,11 +48,16 @@ Global
 		{F41CF3C1-B908-4FA6-B8AA-07D8DFB7E70C}.Release|x64.Build.0 = Release|Any CPU
 		{F41CF3C1-B908-4FA6-B8AA-07D8DFB7E70C}.Release|x86.ActiveCfg = Release|Any CPU
 		{F41CF3C1-B908-4FA6-B8AA-07D8DFB7E70C}.Release|x86.Build.0 = Release|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{C6ADDF23-B8D7-438A-ABB7-8973BA3E176C} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{F41CF3C1-B908-4FA6-B8AA-07D8DFB7E70C} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection

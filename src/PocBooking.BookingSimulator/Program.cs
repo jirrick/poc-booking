@@ -8,18 +8,16 @@ using PocBooking.BookingSimulator.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddHttpClient();
-builder.Services.AddDbContext<SimulatorDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
-builder.Services.AddDbContextFactory<SimulatorDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+var conn = builder.Configuration.GetConnectionString("DefaultConnection");
+builder.Services.AddDbContextFactory<SimulatorDbContext>(options => options.UseSqlite(conn));
+builder.Services.AddScoped<SimulatorDbContext>(sp => sp.GetRequiredService<IDbContextFactory<SimulatorDbContext>>().CreateDbContext());
 builder.Services.AddScoped<IPocWebhookSender, PocWebhookSender>();
 builder.Services.AddRazorPages().AddRazorRuntimeCompilation();
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+await using (var db = app.Services.GetRequiredService<IDbContextFactory<SimulatorDbContext>>().CreateDbContext())
 {
-    var db = scope.ServiceProvider.GetRequiredService<SimulatorDbContext>();
     db.Database.EnsureCreated();
     await SimulatorDbSeed.SeedAsync(db);
 }
