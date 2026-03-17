@@ -27,13 +27,26 @@ Proof-of-concept repository for integrating with **Booking.com Messaging API** v
 |---------|---------|-------------|
 | **PocBooking.Api** | Your POC: webhook receiver, persistence, idempotency. | 5154 |
 | **PocBooking.BookingSimulator** | Simulates Booking.com CNS: sends notifications to the POC. | 5160 |
+| **PocBooking.AppHost** | .NET Aspire host: runs both projects and the dashboard. | — |
 
 ## Tech Stack
 
 - **.NET 10** — POC Api is a minimal Web API; Simulator is a Web API with Razor Pages UI.
 - **SQLite** — **PocBooking.Api**: `pocbooking.db` (EF Core 10). **PocBooking.BookingSimulator**: `booking-simulator.db` (EF Core 10); stores properties, conversations, messages, participants; seeded on first run.
 
-### Run the POC (Api)
+### Run both with Aspire (recommended)
+
+The AppHost uses **Aspire.AppHost.Sdk** (NuGet); no workload is required. DCP and Dashboard are provided by the SDK.
+
+```bash
+dotnet run --project src/PocBooking.AppHost
+```
+
+- **POC API**: http://localhost:5154  
+- **Simulator**: http://localhost:5160  
+- **Dashboard**: URL shown in the console (e.g. http://localhost:15xxx)
+
+### Run the POC (Api) standalone
 
 ```bash
 dotnet run --project src/PocBooking.Api

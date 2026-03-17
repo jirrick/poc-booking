@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk;Aspire.AppHost.Sdk/13.1.2">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsAspireSharedProject>false</IsAspireSharedProject>
+    <UserSecretsId>poc-booking-apphost</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.AppHost" Version="13.1.2" />
+    <ProjectReference Include="..\PocBooking.Api\PocBooking.Api.csproj" />
+    <ProjectReference Include="..\PocBooking.BookingSimulator\PocBooking.BookingSimulator.csproj" />
+  </ItemGroup>
+
+</Project>
