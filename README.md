@@ -23,7 +23,26 @@ Proof-of-concept repository for integrating with **Booking.com Messaging API** v
 
 ## Tech Stack
 
-To be decided (e.g. .NET minimal API, or small service aligned with Communication stack).
+- **.NET 10** — Web API (minimal API)
+- **SQLite** — Persistence via Entity Framework Core 10 (single file `pocbooking.db`, created on first run)
+
+### Run the API
+
+```bash
+cd src/PocBooking.Api
+dotnet run
+```
+
+Or from repo root:
+
+```bash
+dotnet run --project src/PocBooking.Api
+```
+
+- Root: `GET /` — service info
+- Health: `GET /api/health` — checks SQLite connectivity
+
+The SQLite database is created automatically on startup (`EnsureCreated`). Schema includes a placeholder table for notification idempotency (see `Data/NotificationInbox.cs`).
 
 ## References
 
