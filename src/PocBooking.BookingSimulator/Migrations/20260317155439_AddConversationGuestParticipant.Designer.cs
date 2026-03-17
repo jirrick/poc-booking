@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PocBooking.BookingSimulator.Data;
 
@@ -10,9 +11,11 @@ using PocBooking.BookingSimulator.Data;
 namespace PocBooking.BookingSimulator.Migrations
 {
     [DbContext(typeof(SimulatorDbContext))]
-    partial class SimulatorDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260317155439_AddConversationGuestParticipant")]
+    partial class AddConversationGuestParticipant
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.5");

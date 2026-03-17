@@ -4,22 +4,81 @@
     ViewData["Title"] = "New conversation";
 }
 
-<h2>New conversation</h2>
-<p><strong>@Model.PropertyName</strong></p>
-<p><a href="/">← Back to conversations</a></p>
+<div class="d-flex align-items-center gap-3 mb-3">
+    <a href="/" class="btn btn-outline-secondary btn-sm">← Back</a>
+    <h4 class="mb-0">New conversation — <span class="text-muted">@Model.PropertyName</span></h4>
+</div>
 
 @if (TempData["Error"] is string err)
 {
-    <p style="color: red;">@err</p>
+    <div class="alert alert-danger">@err</div>
 }
 
-<form method="post" asp-route-propertyId="@Model.PropertyId">
-    <label>Conversation reference (reservation ID):</label>
-    <input type="text" name="conversationReference" value="@Model.ConversationReference" placeholder="Auto-generated" required />
-    <label>Conversation type:</label>
-    <select name="conversationType">
-        <option value="reservation" selected="@(Model.ConversationType == "reservation")">Reservation</option>
-        <option value="request_to_book" selected="@(Model.ConversationType == "request_to_book")">Request to book</option>
-    </select>
-    <button type="submit">Create conversation</button>
-</form>
+<div class="card" style="max-width:580px">
+    <div class="card-body">
+        <form method="post" asp-route-propertyId="@Model.PropertyId">
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Conversation reference (reservation ID)</label>
+                <input type="text" class="form-control" name="conversationReference"
+                       value="@Model.ConversationReference" placeholder="Auto-generated" required />
+                <div class="form-text">Maps to the Booking.com conversation_reference / reservation number.</div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-semibold">Conversation type</label>
+                <select class="form-select" name="conversationType">
+                    <option value="reservation" selected="@(Model.ConversationType == "reservation")">Reservation</option>
+                    <option value="request_to_book" selected="@(Model.ConversationType == "request_to_book")">Request to book</option>
+                </select>
+            </div>
+
+            <hr />
+            <p class="fw-semibold mb-2">Guest participant</p>
+            <p class="text-muted small">The guest participant ID is what the POC API receives in the CNS webhook sender field and maps to an internal guest identity.</p>
+
+            <div class="mb-3">
+                <div class="form-check mb-1">
+                    <input class="form-check-input" type="radio" name="guestMode" id="guestModeNew" value="new" checked
+                           onchange="document.getElementById('newGuestSection').style.display=''; document.getElementById('existingGuestSection').style.display='none'" />
+                    <label class="form-check-label" for="guestModeNew">Create new guest participant</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="guestMode" id="guestModeExisting" value="existing"
+                           onchange="document.getElementById('newGuestSection').style.display='none'; document.getElementById('existingGuestSection').style.display=''" />
+                    <label class="form-check-label" for="guestModeExisting">Use existing guest participant</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="guestMode" id="guestModeNone" value="none"
+                           onchange="document.getElementById('newGuestSection').style.display='none'; document.getElementById('existingGuestSection').style.display='none'" />
+                    <label class="form-check-label text-muted" for="guestModeNone">No guest (link later)</label>
+                </div>
+            </div>
+
+            <div id="newGuestSection" class="mb-3 ps-3 border-start border-warning">
+                <label class="form-label">Guest name</label>
+                <input type="text" class="form-control" name="newGuestName" placeholder="e.g. Alice Smith" />
+                <div class="form-text">A new participant will be created with a random participant ID (UUID).</div>
+            </div>
+
+            <div id="existingGuestSection" class="mb-3 ps-3 border-start border-warning" style="display:none">
+                <label class="form-label">Select existing guest</label>
+                @if (Model.ExistingGuests.Count == 0)
+                {
+                    <p class="text-muted small">No guest participants yet. Create one first.</p>
+                }
+                else
+                {
+                    <select class="form-select" name="existingGuestId">
+                        @foreach (var g in Model.ExistingGuests)
+                        {
+                            <option value="@g.Id">@g.Name — <code>@g.ParticipantId</code></option>
+                        }
+                    </select>
+                }
+            </div>
+
+            <button type="submit" class="btn btn-warning fw-semibold">Create conversation</button>
+        </form>
+    </div>
+</div>

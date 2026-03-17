@@ -10,5 +10,9 @@ public class Conversation
     public int PropertyId { get; set; }
     public Property Property { get; set; } = null!;
 
+    /// <summary>The guest participant for this conversation. Webhooks sent from this conversation use this participant as sender.</summary>
+    public int? GuestParticipantId { get; set; }
+    public Participant? GuestParticipant { get; set; }
+
     public ICollection<Message> Messages { get; set; } = new List<Message>();
 }

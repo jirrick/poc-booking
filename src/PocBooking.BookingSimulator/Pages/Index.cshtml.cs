@@ -23,6 +23,7 @@ public class IndexModel : PageModel
 
         var convs = await _db.Conversations
             .Where(c => c.PropertyId == prop.Id)
+            .Include(c => c.GuestParticipant)
             .OrderByDescending(c => c.Id)
             .Take(100)
             .ToListAsync(ct);
@@ -39,8 +40,9 @@ public class IndexModel : PageModel
                 ConversationId = c.ConversationId,
                 ConversationReference = c.ConversationReference,
                 ConversationType = c.ConversationType,
+                GuestName = c.GuestParticipant?.Name,
                 LastMessagePreview = latest?.Content?.Length > 80 ? latest.Content[..80] + "…" : latest?.Content,
-                LastMessageAt = latest?.TimestampUtc
+                LastMessageAt = latest?.TimestampUtc,
             });
         }
     }
@@ -50,6 +52,7 @@ public class IndexModel : PageModel
         public string ConversationId { get; set; } = "";
         public string ConversationReference { get; set; } = "";
         public string ConversationType { get; set; } = "";
+        public string? GuestName { get; set; }
         public string? LastMessagePreview { get; set; }
         public DateTime? LastMessageAt { get; set; }
     }

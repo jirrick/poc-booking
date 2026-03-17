@@ -30,6 +30,7 @@ public class SimulatorDbContext(DbContextOptions<SimulatorDbContext> options) : 
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.ConversationId).IsUnique();
             e.HasOne(x => x.Property).WithMany(p => p.Conversations).HasForeignKey(x => x.PropertyId);
+            e.HasOne(x => x.GuestParticipant).WithMany().HasForeignKey(x => x.GuestParticipantId).IsRequired(false);
         });
 
         modelBuilder.Entity<Message>(e =>

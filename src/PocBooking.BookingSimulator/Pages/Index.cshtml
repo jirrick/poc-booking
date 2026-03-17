@@ -4,59 +4,65 @@
     ViewData["Title"] = "Conversations";
 }
 
-<h2>Conversations</h2>
-
-@if (Model.Properties.Count > 0)
+@if (Model.Properties.Count == 0)
 {
-    <p>
-        <label>Property:</label>
-        <select onchange="location.href='/?propertyId='+this.value">
-            @foreach (var p in Model.Properties)
-            {
-                <option value="@p.PropertyId" selected="@(p.PropertyId == Model.SelectedPropertyId)">@p.Name (@p.PropertyId)</option>
-            }
-        </select>
-        <a asp-page="/NewConversation" asp-route-propertyId="@Model.SelectedPropertyId" style="margin-left: 1rem;">+ New conversation</a>
-    </p>
-
-    @if (Model.Conversations.Count == 0)
-    {
-        <p>No conversations for this property.</p>
-    }
-    else
-    {
-        <table>
-            <thead>
-                <tr>
-                    <th>Conversation</th>
-                    <th>Reference</th>
-                    <th>Type</th>
-                    <th>Last message</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var c in Model.Conversations)
-                {
-                    <tr>
-                        <td>@c.ConversationId</td>
-                        <td>@c.ConversationReference</td>
-                        <td>@c.ConversationType</td>
-                        <td>
-                            @if (c.LastMessageAt.HasValue)
-                            {
-                                <span class="meta">@c.LastMessageAt.Value.ToUniversalTime().ToString("u")</span><br />
-                            }
-                            @(c.LastMessagePreview ?? "-")
-                        </td>
-                        <td><a asp-page="/Conversation" asp-route-propertyId="@Model.SelectedPropertyId" asp-route-conversationId="@c.ConversationId">Open</a></td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    }
+    <div class="alert alert-warning">No properties in the database. Run the app to seed data.</div>
 }
 else
 {
-    <p>No properties in the database. Run the app to seed data.</p>
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-2">
+            <label class="fw-semibold mb-0">Property:</label>
+            <select class="form-select form-select-sm w-auto" onchange="location.href='/?propertyId='+this.value">
+                @foreach (var p in Model.Properties)
+                {
+                    <option value="@p.PropertyId" selected="@(p.PropertyId == Model.SelectedPropertyId)">@p.Name (@p.PropertyId)</option>
+                }
+            </select>
+        </div>
+        <a asp-page="/NewConversation" asp-route-propertyId="@Model.SelectedPropertyId" class="btn btn-warning btn-sm fw-semibold">
+            + New conversation
+        </a>
+    </div>
+
+    @if (Model.Conversations.Count == 0)
+    {
+        <div class="alert alert-info">No conversations yet. Click "New conversation" to create one.</div>
+    }
+    else
+    {
+        <div class="list-group">
+            @foreach (var c in Model.Conversations)
+            {
+                <a asp-page="/Conversation"
+                   asp-route-propertyId="@Model.SelectedPropertyId"
+                   asp-route-conversationId="@c.ConversationId"
+                   class="list-group-item list-group-item-action">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-1">
+                        <div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="fw-semibold small">ref: <code>@c.ConversationReference</code></span>
+                                <span class="badge bg-secondary">@c.ConversationType</span>
+                                @if (c.GuestName != null)
+                                {
+                                    <span class="badge bg-warning text-dark">👤 @c.GuestName</span>
+                                }
+                            </div>
+                            <div class="text-muted small mt-1"><code>@c.ConversationId</code></div>
+                        </div>
+                        @if (c.LastMessagePreview != null)
+                        {
+                            <div class="text-muted small text-truncate ms-2" style="max-width:300px">
+                                @if (c.LastMessageAt.HasValue)
+                                {
+                                    <span>@c.LastMessageAt.Value.ToString("HH:mm") · </span>
+                                }
+                                @c.LastMessagePreview
+                            </div>
+                        }
+                    </div>
+                </a>
+            }
+        </div>
+    }
 }
