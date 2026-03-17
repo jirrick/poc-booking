@@ -30,7 +30,7 @@ app.UseRouting();
 app.MapRazorPages();
 app.MapMessagingEndpoints();
 
-app.MapGet("/", () => Results.Ok(new { service = "PocBooking.BookingSimulator", role = "Simulates Booking.com CNS" }));
+app.MapGet("/api", () => Results.Ok(new { service = "PocBooking.BookingSimulator", role = "Simulates Booking.com CNS" }));
 
 // Returns a sample MESSAGING_API_NEW_MESSAGE payload for manual use or inspection.
 app.MapGet("/api/simulate/sample", () =>

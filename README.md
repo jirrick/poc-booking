@@ -30,8 +30,8 @@ Proof-of-concept repository for integrating with **Booking.com Messaging API** v
 
 ## Tech Stack
 
-- **.NET 10** — Both projects are minimal Web APIs.
-- **SQLite** — Used only by **PocBooking.Api** (EF Core 10; `pocbooking.db` created on first run).
+- **.NET 10** — POC Api is a minimal Web API; Simulator is a Web API with Razor Pages UI.
+- **SQLite** — **PocBooking.Api**: `pocbooking.db` (EF Core 10). **PocBooking.BookingSimulator**: `booking-simulator.db` (EF Core 10); stores properties, conversations, messages, participants; seeded on first run.
 
 ### Run the POC (Api)
 
@@ -51,23 +51,42 @@ Start the POC first, then:
 dotnet run --project src/PocBooking.BookingSimulator
 ```
 
-Simulator endpoints:
+- **Web UI (root)**: Open `http://localhost:5060/` in a browser to list properties and conversations, open a thread, and send messages (as guest or property). Sending a message persists it and triggers a CNS webhook to the POC (when `SendWebhookOnNewMessage` is true).
+- **API info**: `GET /api` — service info.
 
-- `GET /` — service info
-- `GET /api/simulate/sample` — returns a sample `MESSAGING_API_NEW_MESSAGE` JSON (for copy/paste or inspection)
-- `POST /api/simulate/deliver` — builds a notification and **POSTs it to the POC webhook** (simulating CNS). Optional JSON body: `{ "notificationUuid": "...", "messageId": "...", "content": "..." }`. Response includes the POC’s status code and response body.
+**Booking-style API** (base path `/messaging`; optional `Accept-Version: 1.2`):
 
-Config (simulator): `BookingSimulator:PocWebhookBaseUrl` (default `http://localhost:5154`), optional `PocBearerToken`.
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/messaging/properties/{propertyId}/conversations` | List conversations (optional `page_id`). |
+| GET | `/messaging/properties/{propertyId}/conversations/{conversationId}` | Get one conversation with full message list. |
+| POST | `/messaging/properties/{propertyId}/conversations/{conversationId}` | Create a message. Body: `{ "message": { "content": "...", "attachment_ids": [] } }`. Triggers webhook to POC. |
+| GET | `/messaging/messages/search` | Create search job. Query: `after`, `before` (ISO8601), `property_id`, `order_by`. |
+| GET | `/messaging/messages/search/result/{jobId}` | Get messages for a job (optional `page_id`). |
+
+**Simulate endpoints** (one-off delivery, no DB):
+
+- `GET /api/simulate/sample` — returns a sample `MESSAGING_API_NEW_MESSAGE` JSON.
+- `POST /api/simulate/deliver` — builds a notification and POSTs it to the POC webhook via the shared webhook sender. Optional body: `{ "notificationUuid": "...", "messageId": "...", "content": "..." }`.
+
+**Simulator configuration** (appsettings; no UI for settings):
+
+| Key | Description |
+|-----|-------------|
+| `ConnectionStrings:DefaultConnection` | SQLite path (e.g. `Data Source=booking-simulator.db`). |
+| `BookingSimulator:PocWebhookBaseUrl` | POC base URL (e.g. `http://localhost:5154`). |
+| `BookingSimulator:PocBearerToken` | Optional Bearer token when calling the POC webhook. |
+| `BookingSimulator:SendWebhookOnNewMessage` | If `true` (default), send webhook after each new message (API or UI). |
+| `BookingSimulator:ApiKey` | Optional. If set, `/messaging/*` requests must send `Authorization: Bearer <ApiKey>`. |
 
 Example: trigger a simulated delivery (POC and Simulator both running):
 
 ```bash
 curl -X POST http://localhost:5060/api/simulate/deliver
-# or with overrides:
 curl -X POST http://localhost:5060/api/simulate/deliver -H "Content-Type: application/json" -d '{"content":"Custom message"}'
 ```
 
-The POC’s SQLite database is created automatically on startup. Schema includes `NotificationInbox` for idempotency (see `PocBooking.Api/Data/NotificationInbox.cs`).
+The POC’s SQLite database is created automatically on startup. Schema includes `NotificationInbox` for idempotency (see `PocBooking.Api/Data/NotificationInbox.cs`). The simulator’s database is created and seeded (one property, participants, one conversation with a welcome message) on first run.
 
 ## References
 

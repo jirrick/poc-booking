@@ -1,0 +1,46 @@
+@page "/Conversation/{propertyId}/{conversationId}"
+@model ConversationModel
+@{
+    ViewData["Title"] = "Conversation " + Model.ConversationId;
+}
+
+<h2>Conversation</h2>
+<p><strong>@Model.PropertyName</strong> — @Model.ConversationId</p>
+<p><a href="/">← Back to conversations</a></p>
+
+@if (TempData["Error"] is string err)
+{
+    <p style="color: red;">@err</p>
+}
+@if (TempData["Success"] is string ok)
+{
+    <p style="color: green;">@ok</p>
+}
+
+<h3>Messages</h3>
+@if (Model.Messages.Count == 0)
+{
+    <p>No messages yet.</p>
+}
+else
+{
+    @foreach (var m in Model.Messages)
+    {
+        <div class="message @m.SenderType">
+            <span class="meta">@m.SenderName (@m.SenderType) — @m.TimestampUtc.ToUniversalTime().ToString("u")</span><br />
+            @m.Content
+        </div>
+    }
+}
+
+<h3>Send message</h3>
+<form method="post" asp-page-handler="SendMessage" asp-route-propertyId="@Model.PropertyId" asp-route-conversationId="@Model.ConversationId">
+    <label>Send as:</label>
+    <select name="sendAs">
+        <option value="hotel" selected="@(Model.SendAs == "hotel")">Property (Hotel)</option>
+        <option value="guest" selected="@(Model.SendAs == "guest")">Guest</option>
+    </select>
+    <label>Content:</label>
+    <textarea name="content" placeholder="Type your message..." required>@Model.MessageContent</textarea>
+    <button type="submit">Send</button>
+</form>

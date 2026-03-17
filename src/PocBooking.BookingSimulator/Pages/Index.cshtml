@@ -1,0 +1,61 @@
+@page "/"
+@model IndexModel
+@{
+    ViewData["Title"] = "Conversations";
+}
+
+<h2>Conversations</h2>
+
+@if (Model.Properties.Count > 0)
+{
+    <p>
+        <label>Property:</label>
+        <select onchange="location.href='/?propertyId='+this.value">
+            @foreach (var p in Model.Properties)
+            {
+                <option value="@p.PropertyId" selected="@(p.PropertyId == Model.SelectedPropertyId)">@p.Name (@p.PropertyId)</option>
+            }
+        </select>
+    </p>
+
+    @if (Model.Conversations.Count == 0)
+    {
+        <p>No conversations for this property.</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Conversation</th>
+                    <th>Reference</th>
+                    <th>Type</th>
+                    <th>Last message</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var c in Model.Conversations)
+                {
+                    <tr>
+                        <td>@c.ConversationId</td>
+                        <td>@c.ConversationReference</td>
+                        <td>@c.ConversationType</td>
+                        <td>
+                            @if (c.LastMessageAt.HasValue)
+                            {
+                                <span class="meta">@c.LastMessageAt.Value.ToUniversalTime().ToString("u")</span><br />
+                            }
+                            @(c.LastMessagePreview ?? "-")
+                        </td>
+                        <td><a asp-page="/Conversation" asp-route-propertyId="@Model.SelectedPropertyId" asp-route-conversationId="@c.ConversationId">Open</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+else
+{
+    <p>No properties in the database. Run the app to seed data.</p>
+}
