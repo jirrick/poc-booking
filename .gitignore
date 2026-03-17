@@ -1,0 +1,45 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+
+# Build / run
+bin/
+obj/
+out/
+*.dll
+*.exe
+*.pdb
+*.cache
+
+# .NET
+project.lock.json
+project.fragment.lock.json
+artifacts/
+*.nupkg
+*.snupkg
+
+# Node (if used)
+node_modules/
+npm-debug.log*
+.npm
+
+# Env / secrets
+.env
+.env.local
+*.local
+appsettings.*.local.json
+secrets/
+
+# Logs / temp
+logs/
+tmp/
+temp/
+*.log
