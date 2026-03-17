@@ -5,6 +5,7 @@ using PocBooking.Api.BookingApi;
 using PocBooking.Api.Data;
 using PocBooking.Api.Endpoints;
 using PocBooking.Api.Enrichment;
+using PocBooking.Api.Mapping;
 using PocBooking.Api.Processing;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,6 +19,7 @@ builder.Services.AddHttpClient<IBookingApiClient, BookingApiClient>();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddScoped<IEnrichCnsMessage, EnrichCnsMessageService>();
+builder.Services.AddScoped<IConversationMappingService, ConversationMappingService>();
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<ProcessCnsNotificationHandler>());
 
 builder.Services.AddRazorPages().AddRazorRuntimeCompilation();

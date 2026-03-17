@@ -24,17 +24,44 @@ else
         {
             <a asp-page="/Conversation" asp-route-propertyId="@Model.PropertyId" asp-route-conversationId="@c.ConversationId"
                class="list-group-item list-group-item-action">
-                <div class="d-flex justify-content-between align-items-start">
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-1">
                     <div>
-                        <div class="fw-semibold">@c.ConversationId</div>
-                        @if (!string.IsNullOrEmpty(c.ConversationReference))
-                        {
-                            <small class="text-muted">ref: <code>@c.ConversationReference</code></small>
-                        }
+                        @* Primary identity: mapped guest + confirmation number *@
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            @if (c.GuestName != null)
+                            {
+                                <span class="fw-bold">@c.GuestName</span>
+                            }
+                            @if (c.ConfirmationNumber != null)
+                            {
+                                <span class="badge bg-primary">@c.ConfirmationNumber</span>
+                            }
+                            @if (c.GuestName == null && c.ConfirmationNumber == null)
+                            {
+                                <span class="fw-semibold text-muted">@c.ConversationId</span>
+                                <span class="badge bg-warning text-dark">not yet mapped</span>
+                            }
+                        </div>
+                        @* Secondary: booking ref + internal IDs *@
+                        <div class="text-muted small mt-1 d-flex flex-wrap gap-2">
+                            @if (!string.IsNullOrEmpty(c.ConversationReference))
+                            {
+                                <span>Booking ref: <code>@c.ConversationReference</code></span>
+                            }
+                            @if (c.InternalReservationId.HasValue)
+                            {
+                                <span>Reservation: <code>@c.InternalReservationId</code></span>
+                            }
+                            @if (c.InternalGuestId.HasValue)
+                            {
+                                <span>Guest: <code>@c.InternalGuestId</code></span>
+                            }
+                            <span class="text-muted">Conv: <code>@c.ConversationId</code></span>
+                        </div>
                     </div>
                     @if (c.LastMessagePreview != null)
                     {
-                        <span class="text-muted small ms-3 text-truncate" style="max-width:320px">@c.LastMessagePreview</span>
+                        <span class="text-muted small text-truncate" style="max-width:280px">@c.LastMessagePreview</span>
                     }
                 </div>
             </a>

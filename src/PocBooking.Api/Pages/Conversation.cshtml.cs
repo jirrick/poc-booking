@@ -1,34 +1,24 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.EntityFrameworkCore;
 using PocBooking.Api.BookingApi;
-using PocBooking.Api.Data;
+using PocBooking.Api.Mapping;
 
 namespace PocBooking.Api.Pages;
 
-public class ConversationModel : PageModel
+public class ConversationModel(IBookingApiClient bookingApi, IConversationMappingService mappingService) : PageModel
 {
-    private readonly IBookingApiClient _bookingApi;
-    private readonly AppDbContext _db;
-
-    public ConversationModel(IBookingApiClient bookingApi, AppDbContext db)
-    {
-        _bookingApi = bookingApi;
-        _db = db;
-    }
-
     public string PropertyId { get; set; } = "";
     public string ConversationId { get; set; } = "";
     public string? ConversationReference { get; set; }
     public string? Error { get; set; }
     public List<MessageVm> Messages { get; set; } = new();
-    public LocalMappingVm? LocalMapping { get; set; }
+    public ConversationMapping? LocalMapping { get; set; }
 
     public async Task<IActionResult> OnGetAsync(string propertyId, string conversationId, CancellationToken ct = default)
     {
         PropertyId = propertyId;
         ConversationId = conversationId;
-        var response = await _bookingApi.GetConversationAsync(propertyId, conversationId, ct);
+        var response = await bookingApi.GetConversationAsync(propertyId, conversationId, ct);
         if (response?.Data == null)
         {
             Error = response?.Error ?? "Failed to load conversation.";
@@ -50,43 +40,22 @@ public class ConversationModel : PageModel
             });
         }
 
-        await LoadLocalMappingAsync(response.Data, ct);
+        if (!string.IsNullOrEmpty(response.Data.ConversationReference))
+        {
+            var guestParticipantIds = response.Data.Participants
+                .Where(p => p.Metadata?.ParticipantType == "guest")
+                .Select(p => p.ParticipantId ?? "")
+                .Concat(Messages
+                    .Where(m => m.SenderType == "guest")
+                    .Select(m => m.SenderParticipantId));
+
+            LocalMapping = await mappingService.GetMappingAsync(
+                response.Data.ConversationReference,
+                guestParticipantIds,
+                ct);
+        }
 
         return Page();
-    }
-
-    private async Task LoadLocalMappingAsync(ConversationDetailResponse detail, CancellationToken ct)
-    {
-        // Match reservation by conversation_reference
-        var convRef = detail.ConversationReference?.Trim();
-        if (string.IsNullOrEmpty(convRef)) return;
-
-        var reservation = await _db.ReservationMappings
-            .AsNoTracking()
-            .FirstOrDefaultAsync(r => r.BookingReservationId == convRef, ct);
-
-        if (reservation == null) return;
-
-        // Find guest participant: prefer participants list, fall back to message senders
-        var guestParticipantId = detail.Participants
-            .FirstOrDefault(p => p.Metadata?.ParticipantType == "guest")?.ParticipantId
-            ?? Messages.FirstOrDefault(m => m.SenderType == "guest")?.SenderParticipantId;
-
-        GuestMapping? guest = null;
-        if (!string.IsNullOrEmpty(guestParticipantId))
-            guest = await _db.GuestMappings
-                .AsNoTracking()
-                .FirstOrDefaultAsync(g => g.BookingGuestId == guestParticipantId, ct);
-
-        LocalMapping = new LocalMappingVm
-        {
-            ConfirmationNumber = reservation.ConfirmationNumber,
-            InternalReservationId = reservation.InternalReservationId,
-            BookingReservationId = reservation.BookingReservationId,
-            GuestName = guest?.GuestName,
-            InternalGuestId = guest?.InternalGuestId,
-            BookingGuestId = guest?.BookingGuestId,
-        };
     }
 
     public async Task<IActionResult> OnPostSendMessageAsync(string propertyId, string conversationId, string? content, CancellationToken ct = default)
@@ -98,7 +67,7 @@ public class ConversationModel : PageModel
             return RedirectToPage(new { propertyId, conversationId });
         }
 
-        var response = await _bookingApi.PostMessageAsync(propertyId, conversationId, content, ct);
+        var response = await bookingApi.PostMessageAsync(propertyId, conversationId, content, ct);
         if (response?.Data == null || !response.Data.Ok)
         {
             TempData["Error"] = response?.Error ?? "Failed to send message.";
@@ -117,7 +86,7 @@ public class ConversationModel : PageModel
             : DateTime.UtcNow;
     }
 
-    public class MessageVm
+    public sealed class MessageVm
     {
         public string MessageId { get; set; } = "";
         public string Content { get; set; } = "";
@@ -125,15 +94,5 @@ public class ConversationModel : PageModel
         public string SenderName { get; set; } = "";
         public string SenderType { get; set; } = "";
         public string SenderParticipantId { get; set; } = "";
-    }
-
-    public class LocalMappingVm
-    {
-        public string ConfirmationNumber { get; set; } = "";
-        public Guid InternalReservationId { get; set; }
-        public string BookingReservationId { get; set; } = "";
-        public string? GuestName { get; set; }
-        public Guid? InternalGuestId { get; set; }
-        public string? BookingGuestId { get; set; }
     }
 }
