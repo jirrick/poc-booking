@@ -23,11 +23,27 @@ public class InboxModel : PageModel
         var inboxIds = inbox.Select(x => x.Id).ToList();
         var processed = await _db.ProcessedMessages
             .Where(p => inboxIds.Contains(p.NotificationInboxId))
-            .ToDictionaryAsync(p => p.NotificationInboxId, p => new { p.InternalReservationId, p.InternalGuestId }, ct);
+            .ToListAsync(ct);
+
+        var reservationIds = processed.Select(p => p.InternalReservationId).Distinct().ToList();
+        var guestIds = processed.Select(p => p.InternalGuestId).Distinct().ToList();
+
+        var reservations = await _db.ReservationMappings
+            .Where(r => reservationIds.Contains(r.InternalReservationId))
+            .ToDictionaryAsync(r => r.InternalReservationId, ct);
+
+        var guests = await _db.GuestMappings
+            .Where(g => guestIds.Contains(g.InternalGuestId))
+            .ToDictionaryAsync(g => g.InternalGuestId, ct);
+
+        var processedByInboxId = processed.ToDictionary(p => p.NotificationInboxId);
 
         foreach (var x in inbox)
         {
-            var p = processed.GetValueOrDefault(x.Id);
+            var p = processedByInboxId.GetValueOrDefault(x.Id);
+            var reservation = p != null ? reservations.GetValueOrDefault(p.InternalReservationId) : null;
+            var guest = p != null ? guests.GetValueOrDefault(p.InternalGuestId) : null;
+
             Items.Add(new InboxRow
             {
                 NotificationUuid = x.NotificationUuid,
@@ -36,6 +52,8 @@ public class InboxModel : PageModel
                 ReceivedAtUtc = x.ReceivedAtUtc,
                 InternalReservationId = p?.InternalReservationId,
                 InternalGuestId = p?.InternalGuestId,
+                ConfirmationNumber = reservation?.ConfirmationNumber,
+                GuestName = guest?.GuestName,
             });
         }
     }
@@ -48,5 +66,7 @@ public class InboxModel : PageModel
         public DateTime ReceivedAtUtc { get; set; }
         public Guid? InternalReservationId { get; set; }
         public Guid? InternalGuestId { get; set; }
+        public string? ConfirmationNumber { get; set; }
+        public string? GuestName { get; set; }
     }
 }

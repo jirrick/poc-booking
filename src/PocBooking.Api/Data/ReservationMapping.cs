@@ -8,5 +8,7 @@ public class ReservationMapping
     public string BookingReservationId { get; set; } = string.Empty;
     /// <summary>Internal (POC) reservation GUID.</summary>
     public Guid InternalReservationId { get; set; }
+    /// <summary>Randomly generated confirmation number for the POC (e.g. "MWS-A3F8B2").</summary>
+    public string ConfirmationNumber { get; set; } = string.Empty;
     public DateTime CreatedAtUtc { get; set; }
 }

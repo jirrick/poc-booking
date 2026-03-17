@@ -16,24 +16,28 @@
         <table>
             <thead>
                 <tr>
-                    <th>NotificationUuid</th>
-                    <th>MessageId</th>
+                    <th>Received</th>
                     <th>Type</th>
-                    <th>ReceivedAtUtc</th>
+                    <th>Guest name</th>
+                    <th>Confirmation #</th>
                     <th>Internal reservation ID</th>
                     <th>Internal guest ID</th>
+                    <th>Message ID</th>
+                    <th>Notification UUID</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach (var row in Model.Items)
                 {
                     <tr>
-                        <td>@row.NotificationUuid</td>
-                        <td>@row.MessageId</td>
+                        <td>@row.ReceivedAtUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
                         <td>@row.Type</td>
-                        <td>@row.ReceivedAtUtc</td>
-                        <td>@(row.InternalReservationId?.ToString() ?? "–")</td>
-                        <td>@(row.InternalGuestId?.ToString() ?? "–")</td>
+                        <td>@(row.GuestName ?? "–")</td>
+                        <td>@(row.ConfirmationNumber ?? "–")</td>
+                        <td><code>@(row.InternalReservationId?.ToString() ?? "–")</code></td>
+                        <td><code>@(row.InternalGuestId?.ToString() ?? "–")</code></td>
+                        <td><small>@row.MessageId</small></td>
+                        <td><small>@row.NotificationUuid</small></td>
                     </tr>
                 }
             </tbody>
