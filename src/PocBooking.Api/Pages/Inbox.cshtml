@@ -24,6 +24,8 @@ else
                         <th>Confirmation #</th>
                         <th>Internal reservation</th>
                         <th>Internal guest</th>
+                        <th>Booking property</th>
+                        <th>Internal enterprise</th>
                         <th class="text-muted">Message ID</th>
                     </tr>
                 </thead>
@@ -43,6 +45,8 @@ else
                             </td>
                             <td><code class="small">@(row.InternalReservationId?.ToString() ?? "–")</code></td>
                             <td><code class="small">@(row.InternalGuestId?.ToString() ?? "–")</code></td>
+                            <td><code class="small">@(row.BookingPropertyId ?? "–")</code></td>
+                            <td><code class="small">@(row.InternalEnterpriseId?.ToString() ?? "–")</code></td>
                             <td class="text-muted"><small>@row.MessageId</small></td>
                         </tr>
                     }

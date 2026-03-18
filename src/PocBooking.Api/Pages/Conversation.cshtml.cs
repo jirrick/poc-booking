@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 using PocBooking.Api.BookingApi;
+using PocBooking.Api.Data;
 using PocBooking.Api.Mapping;
 
 namespace PocBooking.Api.Pages;
 
-public class ConversationModel(IBookingApiClient bookingApi, IConversationMappingService mappingService) : PageModel
+public class ConversationModel(IBookingApiClient bookingApi, IConversationMappingService mappingService, AppDbContext db) : PageModel
 {
     public string PropertyId { get; set; } = "";
     public string ConversationId { get; set; } = "";
@@ -13,11 +15,18 @@ public class ConversationModel(IBookingApiClient bookingApi, IConversationMappin
     public string? Error { get; set; }
     public List<MessageVm> Messages { get; set; } = new();
     public ConversationMapping? LocalMapping { get; set; }
+    public Guid? InternalEnterpriseId { get; set; }
 
     public async Task<IActionResult> OnGetAsync(string propertyId, string conversationId, CancellationToken ct = default)
     {
         PropertyId = propertyId;
         ConversationId = conversationId;
+
+        var propertyMapping = await db.PropertyMappings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.BookingPropertyId == propertyId, ct);
+        InternalEnterpriseId = propertyMapping?.InternalEnterpriseId;
+
         var response = await bookingApi.GetConversationAsync(propertyId, conversationId, ct);
         if (response?.Data == null)
         {

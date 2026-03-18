@@ -4,7 +4,17 @@
     ViewData["Title"] = "Conversations";
 }
 
-<h4 class="mb-3">Conversations <span class="badge bg-secondary">property @Model.PropertyId</span></h4>
+<h4 class="mb-3">
+    Conversations <span class="badge bg-secondary">property @Model.PropertyId</span>
+    @if (Model.InternalEnterpriseId.HasValue)
+    {
+        <span class="badge bg-info text-dark ms-1">Enterprise: <code class="text-dark">@Model.InternalEnterpriseId</code></span>
+    }
+    else
+    {
+        <span class="badge bg-warning text-dark ms-1">enterprise not yet mapped</span>
+    }
+</h4>
 
 @if (!string.IsNullOrEmpty(Model.Error))
 {

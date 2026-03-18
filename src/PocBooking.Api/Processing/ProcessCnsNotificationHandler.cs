@@ -58,6 +58,7 @@ public sealed class ProcessCnsNotificationHandler : IRequestHandler<ProcessCnsNo
             NotificationInboxId = request.NotificationInboxId,
             InternalReservationId = enriched.InternalReservationId,
             InternalGuestId = enriched.InternalGuestId,
+            InternalEnterpriseId = enriched.InternalEnterpriseId,
             ProcessedAtUtc = DateTime.UtcNow,
         });
         await _db.SaveChangesAsync(cancellationToken);

@@ -7,6 +7,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<NotificationInbox> NotificationInbox => Set<NotificationInbox>();
     public DbSet<ReservationMapping> ReservationMappings => Set<ReservationMapping>();
     public DbSet<GuestMapping> GuestMappings => Set<GuestMapping>();
+    public DbSet<PropertyMapping> PropertyMappings => Set<PropertyMapping>();
     public DbSet<ProcessedMessage> ProcessedMessages => Set<ProcessedMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -26,6 +27,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.BookingGuestId).IsUnique();
+        });
+        modelBuilder.Entity<PropertyMapping>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.BookingPropertyId).IsUnique();
         });
         modelBuilder.Entity<ProcessedMessage>(e =>
         {

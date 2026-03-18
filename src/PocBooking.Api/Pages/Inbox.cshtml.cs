@@ -27,6 +27,7 @@ public class InboxModel : PageModel
 
         var reservationIds = processed.Select(p => p.InternalReservationId).Distinct().ToList();
         var guestIds = processed.Select(p => p.InternalGuestId).Distinct().ToList();
+        var enterpriseIds = processed.Select(p => p.InternalEnterpriseId).Where(id => id != Guid.Empty).Distinct().ToList();
 
         var reservations = await _db.ReservationMappings
             .Where(r => reservationIds.Contains(r.InternalReservationId))
@@ -36,6 +37,10 @@ public class InboxModel : PageModel
             .Where(g => guestIds.Contains(g.InternalGuestId))
             .ToDictionaryAsync(g => g.InternalGuestId, ct);
 
+        var enterprises = await _db.PropertyMappings
+            .Where(e => enterpriseIds.Contains(e.InternalEnterpriseId))
+            .ToDictionaryAsync(e => e.InternalEnterpriseId, ct);
+
         var processedByInboxId = processed.ToDictionary(p => p.NotificationInboxId);
 
         foreach (var x in inbox)
@@ -43,6 +48,9 @@ public class InboxModel : PageModel
             var p = processedByInboxId.GetValueOrDefault(x.Id);
             var reservation = p != null ? reservations.GetValueOrDefault(p.InternalReservationId) : null;
             var guest = p != null ? guests.GetValueOrDefault(p.InternalGuestId) : null;
+            var enterprise = p != null && p.InternalEnterpriseId != Guid.Empty
+                ? enterprises.GetValueOrDefault(p.InternalEnterpriseId)
+                : null;
 
             Items.Add(new InboxRow
             {
@@ -52,6 +60,8 @@ public class InboxModel : PageModel
                 ReceivedAtUtc = x.ReceivedAtUtc,
                 InternalReservationId = p?.InternalReservationId,
                 InternalGuestId = p?.InternalGuestId,
+                InternalEnterpriseId = p?.InternalEnterpriseId is Guid eid && eid != Guid.Empty ? eid : null,
+                BookingPropertyId = enterprise?.BookingPropertyId,
                 ConfirmationNumber = reservation?.ConfirmationNumber,
                 GuestName = guest?.GuestName,
             });
@@ -66,6 +76,8 @@ public class InboxModel : PageModel
         public DateTime ReceivedAtUtc { get; set; }
         public Guid? InternalReservationId { get; set; }
         public Guid? InternalGuestId { get; set; }
+        public Guid? InternalEnterpriseId { get; set; }
+        public string? BookingPropertyId { get; set; }
         public string? ConfirmationNumber { get; set; }
         public string? GuestName { get; set; }
     }

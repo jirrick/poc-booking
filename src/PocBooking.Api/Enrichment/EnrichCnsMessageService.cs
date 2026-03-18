@@ -22,6 +22,7 @@ public sealed class EnrichCnsMessageService : IEnrichCnsMessage
     {
         var bookingReservationId = payload.Conversation?.ConversationReference?.Trim() ?? string.Empty;
         var bookingGuestId = payload.Sender?.ParticipantId?.Trim() ?? string.Empty;
+        var bookingPropertyId = payload.Conversation?.PropertyId?.Trim() ?? string.Empty;
         if (string.IsNullOrEmpty(bookingReservationId) || string.IsNullOrEmpty(bookingGuestId))
             return null;
 
@@ -57,12 +58,31 @@ public sealed class EnrichCnsMessageService : IEnrichCnsMessage
             _db.GuestMappings.Add(guestMapping);
         }
 
+        // Get-or-create property mapping
+        PropertyMapping? propertyMapping = null;
+        if (!string.IsNullOrEmpty(bookingPropertyId))
+        {
+            propertyMapping = await _db.PropertyMappings
+                .FirstOrDefaultAsync(m => m.BookingPropertyId == bookingPropertyId, cancellationToken);
+            if (propertyMapping == null)
+            {
+                propertyMapping = new PropertyMapping
+                {
+                    BookingPropertyId = bookingPropertyId,
+                    InternalEnterpriseId = Guid.NewGuid(),
+                    CreatedAtUtc = now,
+                };
+                _db.PropertyMappings.Add(propertyMapping);
+            }
+        }
+
         await _db.SaveChangesAsync(cancellationToken);
 
         return new EnrichedCnsResult
         {
             InternalReservationId = reservationMapping.InternalReservationId,
             InternalGuestId = guestMapping.InternalGuestId,
+            InternalEnterpriseId = propertyMapping?.InternalEnterpriseId ?? Guid.Empty,
             GuestName = guestMapping.GuestName,
             ConfirmationNumber = reservationMapping.ConfirmationNumber,
         };

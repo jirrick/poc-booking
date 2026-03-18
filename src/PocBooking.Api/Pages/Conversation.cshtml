@@ -39,6 +39,18 @@ else
                                 <div class="text-muted small">Internal: <code>@m.InternalReservationId</code></div>
                                 <div class="text-muted small">Booking ref: <code>@m.BookingReservationId</code></div>
                             </div>
+                            <div>
+                                <div class="text-muted small text-uppercase fw-semibold">Enterprise</div>
+                                @if (Model.InternalEnterpriseId.HasValue)
+                                {
+                                    <div class="fw-bold"><code>@Model.InternalEnterpriseId</code></div>
+                                }
+                                else
+                                {
+                                    <div class="fw-bold text-muted">–</div>
+                                }
+                                <div class="text-muted small">Booking property: <code>@Model.PropertyId</code></div>
+                            </div>
                         </div>
                     </div>
                 </div>
