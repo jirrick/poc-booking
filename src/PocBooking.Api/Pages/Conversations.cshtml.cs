@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using PocBooking.Api.BookingApi;
@@ -53,9 +54,30 @@ public class ConversationsModel(IBookingApiClient bookingApi, IConversationMappi
                 InternalReservationId = mapping?.InternalReservationId,
                 GuestName = mapping?.GuestName,
                 InternalGuestId = mapping?.InternalGuestId,
+                HasMessages = lastMsg != null,
                 LastMessagePreview = lastMsg?.Content?.Length > 60 ? lastMsg.Content[..60] + "…" : lastMsg?.Content,
             });
         }
+    }
+
+    public async Task<IActionResult> OnPostSendFirstMessageAsync(
+        string propertyId, string conversationId, string content, CancellationToken ct = default)
+    {
+        content = content?.Trim() ?? string.Empty;
+        if (string.IsNullOrEmpty(content))
+        {
+            TempData["Error"] = "Message content is required.";
+            return RedirectToPage(new { propertyId });
+        }
+
+        var response = await bookingApi.PostMessageAsync(propertyId, conversationId, content, ct);
+        if (response?.Data == null || !response.Data.Ok)
+        {
+            TempData["Error"] = response?.Error ?? "Failed to send message.";
+            return RedirectToPage(new { propertyId });
+        }
+
+        return RedirectToPage("/Conversation", new { propertyId, conversationId });
     }
 
     public sealed class ConversationRow
@@ -66,6 +88,7 @@ public class ConversationsModel(IBookingApiClient bookingApi, IConversationMappi
         public Guid? InternalReservationId { get; set; }
         public string? GuestName { get; set; }
         public Guid? InternalGuestId { get; set; }
+        public bool HasMessages { get; set; }
         public string? LastMessagePreview { get; set; }
     }
 }

@@ -2,6 +2,8 @@
 @model PocBooking.Api.Pages.ConversationsModel
 @{
     ViewData["Title"] = "Conversations";
+    var withMessages = Model.Conversations.Where(c => c.HasMessages).ToList();
+    var unstarted = Model.Conversations.Where(c => !c.HasMessages).ToList();
 }
 
 <h4 class="mb-3">
@@ -16,6 +18,9 @@
     }
 </h4>
 
+@if (TempData["Success"] != null) { <div class="alert alert-success py-2 small">@TempData["Success"]</div> }
+@if (TempData["Error"] != null) { <div class="alert alert-danger py-2 small">@TempData["Error"]</div> }
+
 @if (!string.IsNullOrEmpty(Model.Error))
 {
     <div class="alert alert-warning">
@@ -23,63 +28,103 @@
         <div class="small mt-1">Check that <code>Booking:ApiBaseUrl</code> points to the simulator (e.g. http://localhost:5160).</div>
     </div>
 }
-else if (Model.Conversations.Count == 0)
-{
-    <div class="alert alert-info">No conversations yet. Send a message from the simulator to create one.</div>
-}
 else
 {
-    <div class="list-group mb-3">
-        @foreach (var c in Model.Conversations)
-        {
-            <a asp-page="/Conversation" asp-route-propertyId="@Model.PropertyId" asp-route-conversationId="@c.ConversationId"
-               class="list-group-item list-group-item-action">
-                <div class="d-flex justify-content-between align-items-start flex-wrap gap-1">
-                    <div>
-                        @* Primary identity: mapped guest + confirmation number *@
-                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                            @if (c.GuestName != null)
-                            {
-                                <span class="fw-bold">@c.GuestName</span>
-                            }
-                            @if (c.ConfirmationNumber != null)
-                            {
-                                <span class="badge bg-primary">@c.ConfirmationNumber</span>
-                            }
-                            @if (c.GuestName == null && c.ConfirmationNumber == null)
-                            {
-                                <span class="fw-semibold text-muted">@c.ConversationId</span>
-                                <span class="badge bg-warning text-dark">not yet mapped</span>
-                            }
-                        </div>
-                        @* Secondary: booking ref + internal IDs *@
-                        <div class="text-muted small mt-1 d-flex flex-wrap gap-2">
-                            @if (!string.IsNullOrEmpty(c.ConversationReference))
-                            {
-                                <span>Booking ref: <code>@c.ConversationReference</code></span>
-                            }
-                            @if (c.InternalReservationId.HasValue)
-                            {
-                                <span>Reservation: <code>@c.InternalReservationId</code></span>
-                            }
-                            @if (c.InternalGuestId.HasValue)
-                            {
-                                <span>Guest: <code>@c.InternalGuestId</code></span>
-                            }
-                            <span class="text-muted">Conv: <code>@c.ConversationId</code></span>
-                        </div>
-                    </div>
-                    @if (c.LastMessagePreview != null)
-                    {
-                        <span class="text-muted small text-truncate" style="max-width:280px">@c.LastMessagePreview</span>
-                    }
-                </div>
-            </a>
-        }
-    </div>
-    @if (!string.IsNullOrEmpty(Model.NextPageId))
+    @* ── Active conversations (have at least one message) ── *@
+    @if (withMessages.Count == 0)
     {
-        <a asp-page="/Conversations" asp-route-propertyId="@Model.PropertyId" asp-route-pageId="@Model.NextPageId"
-           class="btn btn-outline-primary btn-sm">Next page →</a>
+        <div class="alert alert-info">No active conversations yet. A guest can message from the simulator, or start one using the section below.</div>
+    }
+    else
+    {
+        <div class="list-group mb-3">
+            @foreach (var c in withMessages)
+            {
+                <a asp-page="/Conversation" asp-route-propertyId="@Model.PropertyId" asp-route-conversationId="@c.ConversationId"
+                   class="list-group-item list-group-item-action">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-1">
+                        <div>
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                @if (c.GuestName != null)
+                                {
+                                    <span class="fw-bold">@c.GuestName</span>
+                                }
+                                @if (c.ConfirmationNumber != null)
+                                {
+                                    <span class="badge bg-primary">@c.ConfirmationNumber</span>
+                                }
+                                @if (c.GuestName == null && c.ConfirmationNumber == null)
+                                {
+                                    <span class="fw-semibold text-muted">@c.ConversationId</span>
+                                    <span class="badge bg-warning text-dark">not yet mapped</span>
+                                }
+                            </div>
+                            <div class="text-muted small mt-1 d-flex flex-wrap gap-2">
+                                @if (!string.IsNullOrEmpty(c.ConversationReference))
+                                {
+                                    <span>Booking ref: <code>@c.ConversationReference</code></span>
+                                }
+                                @if (c.InternalReservationId.HasValue)
+                                {
+                                    <span>Reservation: <code>@c.InternalReservationId</code></span>
+                                }
+                                @if (c.InternalGuestId.HasValue)
+                                {
+                                    <span>Guest: <code>@c.InternalGuestId</code></span>
+                                }
+                                <span class="text-muted">Conv: <code>@c.ConversationId</code></span>
+                            </div>
+                        </div>
+                        @if (c.LastMessagePreview != null)
+                        {
+                            <span class="text-muted small text-truncate" style="max-width:280px">@c.LastMessagePreview</span>
+                        }
+                    </div>
+                </a>
+            }
+        </div>
+        @if (!string.IsNullOrEmpty(Model.NextPageId))
+        {
+            <a asp-page="/Conversations" asp-route-propertyId="@Model.PropertyId" asp-route-pageId="@Model.NextPageId"
+               class="btn btn-outline-primary btn-sm mb-3">Next page →</a>
+        }
+    }
+
+    @* ── Unstarted conversations (no messages yet — property initiates) ── *@
+    @if (unstarted.Count > 0)
+    {
+        <div class="mb-2">
+            <button class="btn btn-outline-secondary btn-sm" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#unstartedCollapse" aria-expanded="false">
+                📭 Unstarted conversations (@unstarted.Count) — send first message as property
+            </button>
+        </div>
+        <div class="collapse" id="unstartedCollapse">
+            <div class="list-group mb-3">
+                @foreach (var c in unstarted)
+                {
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div>
+                                <span class="fw-semibold">Reservation ref: <code>@(c.ConversationReference ?? c.ConversationId)</code></span>
+                                <div class="text-muted small">Conv: <code>@c.ConversationId</code></div>
+                            </div>
+                            <span class="badge bg-secondary">no messages yet</span>
+                        </div>
+                        <form method="post"
+                              asp-page-handler="SendFirstMessage"
+                              asp-route-propertyId="@Model.PropertyId"
+                              asp-route-conversationId="@c.ConversationId"
+                              class="mt-2">
+                            <div class="input-group input-group-sm">
+                                <input type="text" name="content" class="form-control"
+                                       placeholder="First message to guest…" required />
+                                <button type="submit" class="btn btn-primary">Send →</button>
+                            </div>
+                        </form>
+                    </div>
+                }
+            </div>
+        </div>
     }
 }
