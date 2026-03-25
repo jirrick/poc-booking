@@ -93,6 +93,50 @@ sequenceDiagram
     Api-->>Browser: Redirect → conversation page
 ```
 
+### Tag manipulation — no reply needed & message read
+
+The POC UI can set and unset conversation/message tags directly via the Booking Messaging API. The simulator reflects tag state set by the POC and additionally simulates the guest-side read behaviour.
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant Api as PocBooking.Api
+    participant Booking as Booking.com / Simulator
+    participant SimDB as Simulator DB
+
+    Note over Browser,SimDB: no_reply_needed — set from Conversations list or Conversation thread
+
+    Browser->>Api: POST (toggle button)
+    alt marking as no reply needed
+        Api->>Booking: PUT /messaging/properties/{id}/conversations/{convId}/tags/no_reply_needed
+        Booking-->>SimDB: Conversation.NoReplyNeeded = true
+        Booking-->>Api: {data: {ok: true, tag: "no_reply_needed", is_set: true}}
+    else removing tag
+        Api->>Booking: DELETE /messaging/properties/{id}/conversations/{convId}/tags/no_reply_needed
+        Booking-->>SimDB: Conversation.NoReplyNeeded = false
+        Booking-->>Api: {data: {ok: true, tag: "no_reply_needed", is_set: false}}
+    end
+    Api-->>Browser: Redirect (badge updated on next GET)
+
+    Note over Browser,SimDB: message_read — mark all unread guest messages as read
+
+    Browser->>Api: POST MarkRead (property reads incoming guest messages)
+    Api->>Booking: PUT /messaging/properties/{id}/conversations/{convId}/tags/message_read
+    Note right of Api: {message_ids: [...], participant_id: "<property participant>"}
+    Booking-->>SimDB: Message.IsRead = true for each id
+    Booking-->>Api: {data: {ok: true, tag: "read", is_set: true}}
+    Api-->>Browser: Redirect (✓✓ read badges updated on next GET)
+
+    Note over Browser,SimDB: Simulator auto-read — guest reply implicitly reads hotel messages
+
+    Browser->>Booking: POST send as guest (simulator UI)
+    Booking-->>SimDB: new Message (guest sender)
+    Booking-->>SimDB: IsRead = true for all unread hotel messages in thread
+    Note right of SimDB: Simulates guest having read the thread before replying
+    Booking->>Api: POST /api/webhooks/booking/cns (CNS push)
+    Api-->>Browser: (inbound flow — message recorded in inbox)
+```
+
 ## Tech Stack
 
 - **.NET 10** — both projects are ASP.NET Core minimal Web APIs with Razor Pages.
@@ -146,8 +190,8 @@ Receives CNS webhooks from Booking.com (or the simulator), enriches them with lo
 | Page | Path | Description |
 |------|------|-------------|
 | Index | `/Index` | Landing page with links to Conversations and Inbox. |
-| Conversations | `/Conversations?propertyId=...` | Lists all conversations for a property. Primary identifiers are the **guest name** and **confirmation number** from local mappings; falls back to Booking.com conversation ID. Paginated. |
-| Conversation | `/Conversation?propertyId=...&conversationId=...` | Full conversation thread with chat bubbles. Shows a **local mapping card** (guest name, confirmation number, internal IDs) when the CNS enrichment has run. Reply form sends as property. |
+| Conversations | `/Conversations?propertyId=...` | Lists all conversations for a property. Primary identifiers are **guest name** and **confirmation number** from local mappings; falls back to Booking.com conversation ID. Each row shows a **🔕 toggle button** to set or remove the `no_reply_needed` tag inline without opening the conversation. Paginated. |
+| Conversation | `/Conversation?propertyId=...&conversationId=...` | Full conversation thread with chat bubbles. Shows a **local mapping card** (guest name, confirmation number, internal IDs) when CNS enrichment has run. Header shows the **`no_reply_needed` badge** and a toggle button, a **`read-only` badge** when `access=read_only`, and a **Mark all read** button when there are unread guest messages. Each message bubble carries a **✓✓ read** or **unread** badge. Reply form sends as property. |
 | Inbox | `/Inbox` | Raw CNS webhook inbox: every received `MESSAGING_API_NEW_MESSAGE` notification with its guest name, confirmation number, and Booking.com IDs. |
 
 ### Enrichment and identity mapping
@@ -200,13 +244,19 @@ Simulates both sides of Booking.com: the Messaging API (REST) and the CNS push d
 
 All endpoints are under `/messaging`. Authentication is `Authorization: Bearer <ApiKey>` (optional; only enforced when `BookingSimulator:ApiKey` is set).
 
+Response envelope on all endpoints: `{ meta: { ruid }, data: { ... }, errors: [], warnings: [] }`.
+
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/messaging/properties/{propertyId}/conversations` | List conversations (optional `?page_id`). Returns 50 per page. |
-| `GET` | `/messaging/properties/{propertyId}/conversations/{conversationId}` | Full conversation thread: all messages + participants. |
-| `POST` | `/messaging/properties/{propertyId}/conversations/{conversationId}` | Send a message as property. Body: `{ "message": { "content": "...", "attachment_ids": [] } }`. Fires a CNS webhook to the POC. |
-| `GET` | `/messaging/messages/search` | Create a search job. Query: `after`, `before` (ISO 8601), `property_id`, `order_by`. |
-| `GET` | `/messaging/messages/search/result/{jobId}` | Fetch messages for a search job (optional `?page_id`). Returns 410 if expired. |
+| `GET` | `/messaging/properties/{propertyId}/conversations` | List conversations (optional `?page_id`). Returns 50 per page with all messages and participants per conversation. |
+| `GET` | `/messaging/properties/{propertyId}/conversations/{conversationId}` | Full conversation thread: all messages (with `tags.read` and `attachment_ids`) + participants. Wrapped as `data.conversation`. |
+| `POST` | `/messaging/properties/{propertyId}/conversations/{conversationId}` | Send a message as property. Body: `{ "message": { "content": "...", "attachment_ids": [] } }`. Fires a CNS webhook to the POC. Response: `data.{ message_id, ok, guest_has_account }`. |
+| `GET` | `/messaging/messages/search` | Create an async search job. Query params: `after`, `before` (ISO 8601), `property_id`, `order_by`. |
+| `GET` | `/messaging/messages/search/result/{jobId}` | Fetch messages for a search job (optional `?page_id`). Returns 410 if expired (48 h TTL). |
+| `PUT` | `/messaging/properties/{propertyId}/conversations/{conversationId}/tags/no_reply_needed` | Set the `no_reply_needed` tag. No request body. Response: `data.{ ok, tag, is_set: true }`. |
+| `DELETE` | `/messaging/properties/{propertyId}/conversations/{conversationId}/tags/no_reply_needed` | Remove the `no_reply_needed` tag. Response: `data.{ ok, tag, is_set: false }`. |
+| `PUT` | `/messaging/properties/{propertyId}/conversations/{conversationId}/tags/message_read` | Mark one or more messages as read. Body: `{ "message_ids": [...], "participant_id": "..." }`. Response: `data.{ ok, tag: "read", is_set: true }`. |
+| `DELETE` | `/messaging/properties/{propertyId}/conversations/{conversationId}/tags/message_read` | Remove the `message_read` tag from messages. Same body as PUT. Response: `data.{ ok, tag: "read", is_set: true }` (indicates operation success). |
 
 ### Simulate endpoints
 
@@ -229,9 +279,9 @@ Open http://localhost:5160 in a browser.
 
 | Page | Description |
 |------|-------------|
-| Index | Lists all properties; for the selected property shows conversations with linked guest name and last-message preview. |
+| Index | Lists all properties; for the selected property shows conversations with linked guest name, last-message preview, and a **🔕 No reply needed** badge when set by the POC. |
 | New Conversation | Creates a conversation with a configurable `ConversationReference` (reservation number). Optionally create a new named guest participant, pick an existing one, or proceed with no guest linked. |
-| Conversation | Full thread with chat bubbles. Send messages as **guest** (uses the conversation's linked guest participant) or **hotel**. Each send fires a CNS webhook to the POC. |
+| Conversation | Full thread with chat bubbles. Send messages as **guest** (uses the conversation's linked guest participant) or **hotel**. Each send fires a CNS webhook to the POC. Hotel messages show a **✓✓ read** or **unread** badge reflecting whether the guest has read them. Sending as guest automatically marks all unread hotel messages as read (simulates the guest reading the thread before replying). The **🔕 No reply needed** badge is displayed when set by the POC — the simulator shows this as read-only and does not allow toggling it. |
 
 ### SQLite schema (`booking-simulator.db`)
 
@@ -239,8 +289,8 @@ Open http://localhost:5160 in a browser.
 |-------|----------|
 | `Properties` | Simulated properties (seeded on first run with one property). |
 | `Participants` | Guest and hotel participants scoped to a property. |
-| `Conversations` | Conversations with `ConversationReference` and optional `GuestParticipantId` FK. |
-| `Messages` | All messages with sender and timestamp. |
+| `Conversations` | Conversations with `ConversationReference`, optional `GuestParticipantId` FK, and `NoReplyNeeded` flag. |
+| `Messages` | All messages with sender, timestamp, and `IsRead` flag. |
 | `MessageSearchJobs` | Async search jobs (48 h TTL). |
 
 Database is seeded on first run with one property, one hotel participant, and one guest participant with a welcome conversation.
@@ -271,7 +321,7 @@ The POC API is designed so that only configuration changes are needed to switch 
 | **CNS webhook JWT** | `Booking:Cns:JwtSigningKey/Issuer/Audience` matching simulator config | `Booking:Cns:JwtIssuer/Audience` = Booking's values; extend validator for JWKS if needed |
 | **Webhook accessibility** | Both services on localhost | POC's `/api/webhooks/booking/cns` must be publicly reachable |
 
-No code changes are required. All three Messaging API endpoints consumed by the POC (`GET` conversations, `GET` conversation thread, `POST` message) are faithfully simulated with the exact same JSON wire format as the real Booking.com API.
+No code changes are required. All Messaging API endpoints consumed by the POC — conversations list, conversation thread, send message, and all four tag endpoints — are faithfully simulated with the exact same JSON wire format as the real Booking.com API.
 
 ---
 
