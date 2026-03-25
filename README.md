@@ -228,7 +228,9 @@ Database is created and migrated automatically on startup.
 |-----|-------------|
 | `ConnectionStrings:DefaultConnection` | SQLite path (default: `Data Source=pocbooking.db`). |
 | `Booking:ApiBaseUrl` | Outbound Messaging API base URL. Use simulator (`http://localhost:5160`) or real Booking.com URL. |
-| `Booking:ApiKey` | Optional Bearer token for the Messaging API. |
+| `Booking:AuthBaseUrl` | Base URL for token exchange. Defaults to `Booking:ApiBaseUrl` when not set. Real Booking.com: `https://connectivity-authentication.booking.com`. |
+| `Booking:ClientId` | `client_id` sent to the token exchange endpoint. Pre-filled in `appsettings.Development.json` for the simulator. |
+| `Booking:ClientSecret` | `client_secret` sent to the token exchange endpoint. |
 | `Booking:Cns:JwtSigningKey` | Symmetric key for validating incoming CNS webhook JWTs. |
 | `Booking:Cns:JwtIssuer` | Expected `iss` claim in CNS webhook JWTs. |
 | `Booking:Cns:JwtAudience` | Expected `aud` claim in CNS webhook JWTs. |
@@ -242,7 +244,7 @@ Simulates both sides of Booking.com: the Messaging API (REST) and the CNS push d
 
 ### Booking-style Messaging API
 
-All endpoints are under `/messaging`. Authentication is `Authorization: Bearer <ApiKey>` (optional; only enforced when `BookingSimulator:ApiKey` is set).
+All endpoints are under `/messaging` and require a valid connectivity JWT as `Authorization: Bearer <token>`. Obtain a token first via `POST /token-based-authentication/exchange`. The simulator validates the token's RS256 signature against the key it generated at startup, so tokens from a previous run are automatically rejected.
 
 Response envelope on all endpoints: `{ meta: { ruid }, data: { ... }, errors: [], warnings: [] }`.
 
@@ -337,7 +339,6 @@ Database is seeded on first run with one property, one hotel participant, and on
 | `BookingSimulator:JwtSigningKey` | Symmetric key for signing CNS webhook JWTs (match with `Booking:Cns:JwtSigningKey` in POC). |
 | `BookingSimulator:JwtIssuer` | JWT `iss` claim (match with `Booking:Cns:JwtIssuer` in POC). |
 | `BookingSimulator:JwtAudience` | JWT `aud` claim (match with `Booking:Cns:JwtAudience` in POC). |
-| `BookingSimulator:ApiKey` | Optional. If set, `/messaging/*` requires `Authorization: Bearer <ApiKey>`. |
 | `BookingSimulator:Auth:ClientId` | Expected `client_id` for `/token-based-authentication/exchange`. Leave empty to accept any credentials. |
 | `BookingSimulator:Auth:ClientSecret` | Expected `client_secret`. Leave empty to accept any credentials. |
 | `BookingSimulator:Auth:MachineAccountId` | Value of the `machine_account_id` claim in issued JWTs (default: `15810`). |
@@ -352,7 +353,8 @@ The POC API is designed so that only configuration changes are needed to switch 
 | Concern | Simulator | Real Booking.com |
 |---------|-----------|------------------|
 | **Messaging API base URL** | `Booking:ApiBaseUrl` = `http://localhost:5160` | `Booking:ApiBaseUrl` = Booking's API base URL |
-| **Messaging API auth** | `Booking:ApiKey` matching `BookingSimulator:ApiKey` (optional) | `Booking:ApiKey` = real Booking.com API key |
+| **Auth base URL** | `Booking:AuthBaseUrl` = (same as ApiBaseUrl) | `Booking:AuthBaseUrl` = `https://connectivity-authentication.booking.com` |
+| **Token exchange credentials** | `Booking:ClientId` / `Booking:ClientSecret` matching `BookingSimulator:Auth:ClientId/Secret` | `Booking:ClientId` / `Booking:ClientSecret` = real Booking.com credentials |
 | **CNS webhook JWT** | `Booking:Cns:JwtSigningKey/Issuer/Audience` matching simulator config | `Booking:Cns:JwtIssuer/Audience` = Booking's values; extend validator for JWKS if needed |
 | **Webhook accessibility** | Both services on localhost | POC's `/api/webhooks/booking/cns` must be publicly reachable |
 

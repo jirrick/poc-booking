@@ -17,7 +17,7 @@ public static class MessagingEndpoints
 
     public static void MapMessagingEndpoints(this IEndpointRouteBuilder routes)
     {
-        var group = routes.MapGroup(Base);
+        var group = routes.MapGroup(Base).RequireAuthorization();
 
         group.MapGet("/properties/{propertyId}/conversations", GetConversations)
             .WithName("GetConversations");
@@ -91,12 +91,9 @@ public static class MessagingEndpoints
     private static async Task<IResult> GetConversations(
         string propertyId,
         [FromQuery] string? page_id,
-        HttpContext context,
         SimulatorDbContext db,
-        IConfiguration config,
         CancellationToken ct)
     {
-        if (!Authorize(config, context)) return Results.Unauthorized();
 
         var property = await db.Properties.FirstOrDefaultAsync(p => p.PropertyId == propertyId, ct);
         if (property == null) return Results.NotFound();
@@ -152,12 +149,9 @@ public static class MessagingEndpoints
     private static async Task<IResult> GetConversation(
         string propertyId,
         string conversationId,
-        HttpContext context,
         SimulatorDbContext db,
-        IConfiguration config,
         CancellationToken ct)
     {
-        if (!Authorize(config, context)) return Results.Unauthorized();
 
         var property = await db.Properties.FirstOrDefaultAsync(p => p.PropertyId == propertyId, ct);
         if (property == null) return Results.NotFound();
@@ -193,10 +187,8 @@ public static class MessagingEndpoints
         HttpContext context,
         SimulatorDbContext db,
         IPocWebhookSender webhookSender,
-        IConfiguration config,
         CancellationToken ct)
     {
-        if (!Authorize(config, context)) return Results.Unauthorized();
 
         var property = await db.Properties.FirstOrDefaultAsync(p => p.PropertyId == propertyId, ct);
         if (property == null) return Results.NotFound();
@@ -242,12 +234,9 @@ public static class MessagingEndpoints
         [FromQuery] string? before,
         [FromQuery] string? property_id,
         [FromQuery] string? order_by,
-        HttpContext context,
         SimulatorDbContext db,
-        IConfiguration config,
         CancellationToken ct)
     {
-        if (!Authorize(config, context)) return Results.Unauthorized();
 
         DateTime? afterUtc = null, beforeUtc = null;
         if (!string.IsNullOrEmpty(after) && DateTime.TryParse(after, null, System.Globalization.DateTimeStyles.RoundtripKind, out var a))
@@ -281,12 +270,9 @@ public static class MessagingEndpoints
     private static async Task<IResult> GetMessageSearchResult(
         string jobId,
         [FromQuery] string? page_id,
-        HttpContext context,
         SimulatorDbContext db,
-        IConfiguration config,
         CancellationToken ct)
     {
-        if (!Authorize(config, context)) return Results.Unauthorized();
 
         var job = await db.MessageSearchJobs.FirstOrDefaultAsync(j => j.JobId == jobId, ct);
         if (job == null) return Results.NotFound();
@@ -346,9 +332,8 @@ public static class MessagingEndpoints
     // PUT .../tags/no_reply_needed — no body, sets the tag
     private static async Task<IResult> SetNoReplyNeeded(
         string propertyId, string conversationId,
-        HttpContext context, SimulatorDbContext db, IConfiguration config, CancellationToken ct)
+        SimulatorDbContext db, CancellationToken ct)
     {
-        if (!Authorize(config, context)) return Results.Unauthorized();
         var (conv, _) = await LoadConversation(propertyId, conversationId, db, ct);
         if (conv == null) return Results.NotFound();
         conv.NoReplyNeeded = true;
@@ -356,12 +341,10 @@ public static class MessagingEndpoints
         return Envelope(new { ok = true, tag = "no_reply_needed", is_set = true });
     }
 
-    // DELETE .../tags/no_reply_needed — no body, removes the tag
     private static async Task<IResult> RemoveNoReplyNeeded(
         string propertyId, string conversationId,
-        HttpContext context, SimulatorDbContext db, IConfiguration config, CancellationToken ct)
+        SimulatorDbContext db, CancellationToken ct)
     {
-        if (!Authorize(config, context)) return Results.Unauthorized();
         var (conv, _) = await LoadConversation(propertyId, conversationId, db, ct);
         if (conv == null) return Results.NotFound();
         conv.NoReplyNeeded = false;
@@ -369,12 +352,10 @@ public static class MessagingEndpoints
         return Envelope(new { ok = true, tag = "no_reply_needed", is_set = false });
     }
 
-    // PUT .../tags/message_read — body: { message_ids: [], participant_id: "" }
     private static async Task<IResult> SetMessageRead(
         string propertyId, string conversationId,
-        HttpContext context, SimulatorDbContext db, IConfiguration config, CancellationToken ct)
+        HttpContext context, SimulatorDbContext db, CancellationToken ct)
     {
-        if (!Authorize(config, context)) return Results.Unauthorized();
         var (conv, _) = await LoadConversation(propertyId, conversationId, db, ct);
         if (conv == null) return Results.NotFound();
         var body = await context.Request.ReadFromJsonAsync<MessageReadBody>(ct);
@@ -389,12 +370,10 @@ public static class MessagingEndpoints
         return Envelope(new { ok = true, tag = "read", is_set = true });
     }
 
-    // DELETE .../tags/message_read — body: { message_ids: [], participant_id: "" }
     private static async Task<IResult> RemoveMessageRead(
         string propertyId, string conversationId,
-        HttpContext context, SimulatorDbContext db, IConfiguration config, CancellationToken ct)
+        HttpContext context, SimulatorDbContext db, CancellationToken ct)
     {
-        if (!Authorize(config, context)) return Results.Unauthorized();
         var (conv, _) = await LoadConversation(propertyId, conversationId, db, ct);
         if (conv == null) return Results.NotFound();
         var body = await context.Request.ReadFromJsonAsync<MessageReadBody>(ct);
@@ -419,20 +398,6 @@ public static class MessagingEndpoints
         var conv = await db.Conversations
             .FirstOrDefaultAsync(c => c.PropertyId == property.Id && c.ConversationId == conversationId, ct);
         return (conv, property);
-    }
-
-    // ── Auth ──────────────────────────────────────────────────────────────────
-
-    private static bool Authorize(IConfiguration config, HttpContext? context = null)
-    {
-        var apiKey = config["BookingSimulator:ApiKey"];
-        if (string.IsNullOrWhiteSpace(apiKey)) return true;
-        if (context == null) return false;
-        var auth = context.Request.Headers.Authorization.FirstOrDefault();
-        if (string.IsNullOrEmpty(auth) || !auth.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-            return false;
-        var token = auth["Bearer ".Length..].Trim();
-        return token == apiKey;
     }
 }
 

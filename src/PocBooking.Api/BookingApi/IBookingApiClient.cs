@@ -1,8 +1,8 @@
 namespace PocBooking.Api.BookingApi;
 
 /// <summary>
-/// Client for Booking.com property API: list conversations, get thread, send reply, manage tags.
-/// Configurable via Booking:ApiBaseUrl and Booking:ApiKey (same code path for simulator or real Booking).
+/// Client for the Booking.com messaging API: list conversations, get thread, send reply, manage tags.
+/// Authentication is handled via a connectivity JWT obtained through <see cref="IBookingAuthClient"/>.
 /// </summary>
 public interface IBookingApiClient
 {

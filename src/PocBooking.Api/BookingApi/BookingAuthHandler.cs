@@ -1,33 +1,26 @@
 using System.Net.Http.Headers;
-using Microsoft.Extensions.Options;
 
 namespace PocBooking.Api.BookingApi;
 
 /// <summary>
-/// DelegatingHandler that attaches a Bearer token to every outgoing Booking messaging API request.
-/// Priority: live JWT from <see cref="IBookingTokenStore"/> (when valid) → static <c>Booking:ApiKey</c>.
+/// Attaches the live connectivity JWT from <see cref="IBookingTokenStore"/> as a Bearer token
+/// on every outgoing Booking messaging API request.
+/// If no valid token is present the request is sent without an Authorization header.
 /// </summary>
 public sealed class BookingAuthHandler : DelegatingHandler
 {
     private readonly IBookingTokenStore _tokenStore;
-    private readonly IOptions<BookingApiOptions> _options;
 
-    public BookingAuthHandler(IBookingTokenStore tokenStore, IOptions<BookingApiOptions> options)
+    public BookingAuthHandler(IBookingTokenStore tokenStore)
     {
         _tokenStore = tokenStore;
-        _options = options;
     }
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
     {
-        var token = _tokenStore.IsValid
-            ? _tokenStore.Jwt
-            : _options.Value.ApiKey;
-
-        if (!string.IsNullOrEmpty(token))
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        if (_tokenStore.IsValid)
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _tokenStore.Jwt);
 
         return base.SendAsync(request, ct);
     }
 }
-

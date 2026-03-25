@@ -1,5 +1,7 @@
 using System.Text.Json;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using PocBooking.BookingSimulator.Data;
 using PocBooking.BookingSimulator.Endpoints;
 using PocBooking.BookingSimulator.Models;
@@ -16,6 +18,25 @@ builder.Services.AddSingleton<IPocWebhookJwtFactory, PocWebhookJwtFactory>();
 builder.Services.AddScoped<IPocWebhookSender, PocWebhookSender>();
 builder.Services.Configure<ConnectivityAuthOptions>(builder.Configuration.GetSection(ConnectivityAuthOptions.SectionName));
 builder.Services.AddSingleton<SimulatorRsaKeyProvider>();
+
+// JWT bearer auth — validates tokens issued by our own /token-based-authentication/exchange endpoint.
+// Key is resolved lazily from the singleton SimulatorRsaKeyProvider so startup order doesn't matter.
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<SimulatorRsaKeyProvider>((opts, keyProvider) =>
+    {
+        opts.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = "urn://connectivity-modern-auth/v1",
+            ValidateAudience = false,   // JWT aud is "" — skip audience check
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = keyProvider.GetSigningKey(),
+            ClockSkew = TimeSpan.FromSeconds(30),
+        };
+    });
+builder.Services.AddAuthorization();
 builder.Services.AddRazorPages().AddRazorRuntimeCompilation();
 
 var app = builder.Build();
@@ -31,6 +52,8 @@ await using (var db = app.Services.GetRequiredService<IDbContextFactory<Simulato
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapRazorPages();
 app.MapMessagingEndpoints();
 app.MapAuthEndpoints();

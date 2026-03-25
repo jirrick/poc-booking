@@ -1,7 +1,8 @@
 namespace PocBooking.Api.BookingApi;
 
 /// <summary>
-/// Configuration for outbound calls to Booking API (simulator or real). Binds from "Booking".
+/// Configuration for outbound calls to the Booking API (simulator or real). Binds from "Booking".
+/// Authentication is token-based only — use the home page to exchange credentials for a JWT.
 /// </summary>
 public sealed class BookingApiOptions
 {
@@ -21,10 +22,4 @@ public sealed class BookingApiOptions
 
     /// <summary>client_secret for token exchange (Booking:ClientSecret).</summary>
     public string? ClientSecret { get; set; }
-
-    /// <summary>
-    /// Static fallback Bearer token used when no live JWT is present in the token store.
-    /// Set this to the simulator's ApiKey when not using token-based auth.
-    /// </summary>
-    public string? ApiKey { get; set; }
 }
