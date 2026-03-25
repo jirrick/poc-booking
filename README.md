@@ -265,6 +265,37 @@ Response envelope on all endpoints: `{ meta: { ruid }, data: { ... }, errors: []
 | `GET` | `/api/simulate/sample` | Returns a sample `MESSAGING_API_NEW_MESSAGE` payload (JSON). |
 | `POST` | `/api/simulate/deliver` | Fires a one-off CNS notification to the POC webhook. Optional body: `{ "notificationUuid": "...", "messageId": "...", "content": "..." }`. |
 
+### Token-based authentication endpoint
+
+Simulates the Booking.com connectivity-authentication service at the same relative path as the real API:
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/token-based-authentication/exchange` | Exchange `client_id` + `client_secret` for an RS256-signed JWT. Matches the shape of the real `https://connectivity-authentication.booking.com/token-based-authentication/exchange` endpoint. |
+| `GET` | `/token-based-authentication/.well-known/jwks.json` | Returns the public key in JWKS format so callers (e.g. PocBooking.Api) can validate the issued tokens. |
+
+Request body:
+```json
+{
+  "client_id": "08BA24DE-243C-11F1-8C94-61FAFA3EEF80",
+  "client_secret": "SECRET_HERE"
+}
+```
+
+Response:
+```json
+{
+  "jwt": "<RS256 signed JWT>",
+  "ruid": "<random UUID>"
+}
+```
+
+The issued JWT has the same structure as the real Booking.com connectivity JWT:
+- **Header**: `{ "kid": "1", "typ": "JWT", "alg": "RS256" }`
+- **Payload**: `sub`, `aud`, `test`, `machine_account_id`, `iss` (`urn://connectivity-modern-auth/v1`), `provider_id`, `exp` (1 h), `iat`, `client_id`, `jti`
+
+The simulator generates an ephemeral RSA-2048 key pair at startup. Credentials are validated when `BookingSimulator:Auth:ClientId` and `BookingSimulator:Auth:ClientSecret` are both set; otherwise any non-empty credentials are accepted.
+
 Example:
 ```bash
 curl -X POST http://localhost:5160/api/simulate/deliver
@@ -307,6 +338,10 @@ Database is seeded on first run with one property, one hotel participant, and on
 | `BookingSimulator:JwtIssuer` | JWT `iss` claim (match with `Booking:Cns:JwtIssuer` in POC). |
 | `BookingSimulator:JwtAudience` | JWT `aud` claim (match with `Booking:Cns:JwtAudience` in POC). |
 | `BookingSimulator:ApiKey` | Optional. If set, `/messaging/*` requires `Authorization: Bearer <ApiKey>`. |
+| `BookingSimulator:Auth:ClientId` | Expected `client_id` for `/token-based-authentication/exchange`. Leave empty to accept any credentials. |
+| `BookingSimulator:Auth:ClientSecret` | Expected `client_secret`. Leave empty to accept any credentials. |
+| `BookingSimulator:Auth:MachineAccountId` | Value of the `machine_account_id` claim in issued JWTs (default: `15810`). |
+| `BookingSimulator:Auth:ProviderId` | Value of the `provider_id` claim in issued JWTs (default: `1432`). |
 
 ---
 

@@ -14,6 +14,8 @@ builder.Services.AddScoped<SimulatorDbContext>(sp => sp.GetRequiredService<IDbCo
 builder.Services.Configure<PocWebhookJwtOptions>(builder.Configuration.GetSection(PocWebhookJwtOptions.SectionName));
 builder.Services.AddSingleton<IPocWebhookJwtFactory, PocWebhookJwtFactory>();
 builder.Services.AddScoped<IPocWebhookSender, PocWebhookSender>();
+builder.Services.Configure<ConnectivityAuthOptions>(builder.Configuration.GetSection(ConnectivityAuthOptions.SectionName));
+builder.Services.AddSingleton<SimulatorRsaKeyProvider>();
 builder.Services.AddRazorPages().AddRazorRuntimeCompilation();
 
 var app = builder.Build();
@@ -31,6 +33,7 @@ app.UseStaticFiles();
 app.UseRouting();
 app.MapRazorPages();
 app.MapMessagingEndpoints();
+app.MapAuthEndpoints();
 
 app.MapGet("/api", () => Results.Ok(new { service = "PocBooking.BookingSimulator", role = "Simulates Booking.com CNS" }));
 

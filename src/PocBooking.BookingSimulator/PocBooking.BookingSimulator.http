@@ -1,6 +1,29 @@
-@PocBooking.BookingSimulator_HostAddress = http://localhost:5183
+@PocBooking.BookingSimulator_HostAddress = http://localhost:5160
 
-GET {{PocBooking.BookingSimulator_HostAddress}}/weatherforecast/
+### Exchange credentials for a JWT (simulates Booking.com connectivity-auth)
+POST {{PocBooking.BookingSimulator_HostAddress}}/token-based-authentication/exchange
+Content-Type: application/json
+
+{
+  "client_id": "69AB1B31-241A-435F-8A26-8C2B152C02B4",
+  "client_secret": "SECRET_HERE"
+}
+
+###
+
+### Retrieve JWKS (public key for validating issued tokens)
+GET {{PocBooking.BookingSimulator_HostAddress}}/token-based-authentication/.well-known/jwks.json
 Accept: application/json
 
 ###
+
+### Simulate CNS delivery (one-off webhook to POC API)
+POST {{PocBooking.BookingSimulator_HostAddress}}/api/simulate/deliver
+Content-Type: application/json
+
+{
+  "content": "Custom test message"
+}
+
+###
+
