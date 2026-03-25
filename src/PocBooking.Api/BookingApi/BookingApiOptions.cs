@@ -7,9 +7,24 @@ public sealed class BookingApiOptions
 {
     public const string SectionName = "Booking";
 
-    /// <summary>Base URL of the Booking API (e.g. http://localhost:5160 for simulator).</summary>
+    /// <summary>Base URL of the messaging API (e.g. http://localhost:5160 for simulator).</summary>
     public string? ApiBaseUrl { get; set; }
 
-    /// <summary>Optional API key or token for Authorization: Bearer (simulator uses BookingSimulator:ApiKey).</summary>
+    /// <summary>
+    /// Base URL of the connectivity-authentication endpoint. Defaults to <see cref="ApiBaseUrl"/> when not set.
+    /// For the real Booking.com API this is https://connectivity-authentication.booking.com.
+    /// </summary>
+    public string? AuthBaseUrl { get; set; }
+
+    /// <summary>client_id for token exchange (Booking:ClientId).</summary>
+    public string? ClientId { get; set; }
+
+    /// <summary>client_secret for token exchange (Booking:ClientSecret).</summary>
+    public string? ClientSecret { get; set; }
+
+    /// <summary>
+    /// Static fallback Bearer token used when no live JWT is present in the token store.
+    /// Set this to the simulator's ApiKey when not using token-based auth.
+    /// </summary>
     public string? ApiKey { get; set; }
 }

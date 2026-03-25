@@ -14,7 +14,11 @@ builder.Services.Configure<CnsJwtOptions>(builder.Configuration.GetSection(CnsJw
 builder.Services.AddSingleton<ICnsSignatureValidator, CnsJwtSignatureValidator>();
 
 builder.Services.Configure<BookingApiOptions>(builder.Configuration.GetSection(BookingApiOptions.SectionName));
-builder.Services.AddHttpClient<IBookingApiClient, BookingApiClient>();
+builder.Services.AddSingleton<IBookingTokenStore, BookingTokenStore>();
+builder.Services.AddTransient<BookingAuthHandler>();
+builder.Services.AddHttpClient<IBookingApiClient, BookingApiClient>()
+    .AddHttpMessageHandler<BookingAuthHandler>();
+builder.Services.AddHttpClient<IBookingAuthClient, BookingAuthClient>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));

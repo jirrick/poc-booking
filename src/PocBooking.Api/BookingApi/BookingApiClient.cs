@@ -17,13 +17,10 @@ public sealed class BookingApiClient : IBookingApiClient
     public BookingApiClient(HttpClient http, IOptions<BookingApiOptions> options)
     {
         _http = http;
-        var opts = options.Value;
-        var baseUrl = opts.ApiBaseUrl?.TrimEnd('/');
+        var baseUrl = options.Value.ApiBaseUrl?.TrimEnd('/');
         if (!string.IsNullOrEmpty(baseUrl))
             _http.BaseAddress = new Uri(baseUrl);
-        var apiKey = opts.ApiKey;
-        if (!string.IsNullOrEmpty(apiKey))
-            _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        // Authorization is injected dynamically by BookingAuthHandler
     }
 
     public async Task<BookingApiResponse<ConversationListResponse>?> GetConversationsAsync(string propertyId, string? pageId = null, CancellationToken cancellationToken = default)

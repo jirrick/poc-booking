@@ -1,10 +1,102 @@
 @page
 @model PocBooking.Api.Pages.IndexModel
 @{
-    ViewData["Title"] = "POC Booking – Property";
+    ViewData["Title"] = "POC Booking – Home";
 }
 
-<div class="row g-3 mt-1">
+@* ── Alerts from TempData ──────────────────────────────────────────────────── *@
+@if (Model.TokenError is not null)
+{
+    <div class="alert alert-danger alert-dismissible fade show mt-2" role="alert">
+        <strong>Auth error:</strong> @Model.TokenError
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+@if (Model.TokenSuccess is not null)
+{
+    <div class="alert alert-success alert-dismissible fade show mt-2" role="alert">
+        @Model.TokenSuccess
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@* ── Token card ────────────────────────────────────────────────────────────── *@
+<div class="card mb-4">
+    <div class="card-header d-flex align-items-center gap-2 fw-semibold">
+        🔑 API Authentication
+        @if (Model.TokenIsValid)
+        {
+            <span class="badge bg-success">Valid</span>
+            <span class="text-muted fw-normal small">expires in @Model.TokenExpiryLabel</span>
+        }
+        else if (Model.TokenJwt is not null)
+        {
+            <span class="badge bg-danger">Expired</span>
+        }
+        else
+        {
+            <span class="badge bg-secondary">No token</span>
+        }
+    </div>
+    <div class="card-body">
+        <p class="text-muted small mb-3">
+            Calls <code>POST /token-based-authentication/exchange</code> on the simulator (mirrors the real
+            <code>connectivity-authentication.booking.com</code> endpoint). The token is stored in memory and
+            attached automatically to every outgoing Messaging API call.
+        </p>
+
+        @* Exchange form *@
+        <form method="post" asp-page-handler="ExchangeToken" class="row g-2 align-items-end mb-3">
+            <div class="col-md-5">
+                <label class="form-label small mb-1">client_id</label>
+                <input name="ClientId" value="@Model.ClientId" class="form-control form-control-sm font-monospace"
+                       placeholder="08BA24DE-..." autocomplete="off" />
+            </div>
+            <div class="col-md-5">
+                <label class="form-label small mb-1">client_secret</label>
+                <input name="ClientSecret" value="@Model.ClientSecret" type="password"
+                       class="form-control form-control-sm font-monospace" placeholder="secret" autocomplete="off" />
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary btn-sm w-100">Get Token</button>
+            </div>
+        </form>
+
+        @* Active-token details *@
+        @if (Model.TokenClaims is not null)
+        {
+            <div class="d-flex justify-content-between align-items-start mb-1">
+                <span class="text-muted small">JWT claims</span>
+                <form method="post" asp-page-handler="ClearToken" class="d-inline">
+                    <button type="submit" class="btn btn-outline-danger btn-sm py-0">Clear</button>
+                </form>
+            </div>
+            <table class="table table-sm table-bordered mb-0" style="font-size:.8rem">
+                <tbody>
+                @foreach (var (key, value) in Model.TokenClaims)
+                {
+                    <tr>
+                        <td class="text-muted font-monospace" style="width:30%">@key</td>
+                        <td class="font-monospace text-break">
+                            @if (key is "exp" or "iat" or "nbf" && long.TryParse(value, out var unix))
+                            {
+                                @DateTimeOffset.FromUnixTimeSeconds(unix).ToString("yyyy-MM-dd HH:mm:ss") <text> UTC</text>
+                            }
+                            else
+                            {
+                                @value
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@* ── Navigation cards ──────────────────────────────────────────────────────── *@
+<div class="row g-3">
     <div class="col-md-6">
         <a asp-page="/Conversations" asp-route-propertyId="@Model.DefaultPropertyId" class="text-decoration-none">
             <div class="card h-100">
@@ -26,3 +118,15 @@
         </a>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        // Auto-dismiss alerts after 5 s
+        setTimeout(() => {
+            document.querySelectorAll('.alert.alert-success').forEach(el => {
+                const bsAlert = bootstrap.Alert.getOrCreateInstance(el);
+                bsAlert.close();
+            });
+        }, 5000);
+    </script>
+}
