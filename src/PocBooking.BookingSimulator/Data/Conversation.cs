@@ -6,6 +6,7 @@ public class Conversation
     public string ConversationId { get; set; } = string.Empty;
     public string ConversationReference { get; set; } = string.Empty;
     public string ConversationType { get; set; } = "reservation"; // reservation | request_to_book
+    public bool NoReplyNeeded { get; set; } = false;
 
     public int PropertyId { get; set; }
     public Property Property { get; set; } = null!;

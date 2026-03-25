@@ -29,6 +29,16 @@ public static class MessagingEndpoints
             .WithName("CreateMessageSearchJob");
         group.MapGet("/messages/search/result/{jobId}", GetMessageSearchResult)
             .WithName("GetMessageSearchResult");
+        // no_reply_needed: PUT to set, DELETE to unset (no request body)
+        group.MapPut("/properties/{propertyId}/conversations/{conversationId}/tags/no_reply_needed", SetNoReplyNeeded)
+            .WithName("SetNoReplyNeeded");
+        group.MapDelete("/properties/{propertyId}/conversations/{conversationId}/tags/no_reply_needed", RemoveNoReplyNeeded)
+            .WithName("RemoveNoReplyNeeded");
+        // message_read: PUT to mark read, DELETE to unmark — body: { message_ids, participant_id }
+        group.MapPut("/properties/{propertyId}/conversations/{conversationId}/tags/message_read", SetMessageRead)
+            .WithName("SetMessageRead");
+        group.MapDelete("/properties/{propertyId}/conversations/{conversationId}/tags/message_read", RemoveMessageRead)
+            .WithName("RemoveMessageRead");
     }
 
     // ── Response helpers ──────────────────────────────────────────────────────
@@ -73,7 +83,7 @@ public static class MessagingEndpoints
         sender_id = m.Sender.ParticipantId,
         content = m.Content,
         attachment_ids = Array.Empty<string>(),
-        tags = new { read = new { set = false } }
+        tags = new { read = new { set = m.IsRead } }
     };
 
     // ── Endpoint handlers ─────────────────────────────────────────────────────
@@ -125,7 +135,7 @@ public static class MessagingEndpoints
                 conversation_reference = c.ConversationReference,
                 conversation_type = c.ConversationType,
                 access = "read_write",
-                tags = new { no_reply_needed = new { set = false } },
+                tags = new { no_reply_needed = new { set = c.NoReplyNeeded } },
                 messages = messages.Select(MapMessageForList).ToList(),
                 participants = allParticipants.Select(p => MapParticipant(p, property.PropertyId)).ToList()
             });
@@ -169,7 +179,7 @@ public static class MessagingEndpoints
                 conversation_reference = conv.ConversationReference,
                 conversation_type = conv.ConversationType,
                 access = "read_write",
-                tags = new { no_reply_needed = new { set = false } },
+                tags = new { no_reply_needed = new { set = conv.NoReplyNeeded } },
                 messages = conv.Messages.Select(MapMessageForDetail).ToList(),
                 participants = participants.Select(p => MapParticipant(p, property.PropertyId)).ToList()
             },
@@ -331,6 +341,86 @@ public static class MessagingEndpoints
         });
     }
 
+    // ── Tag endpoints ─────────────────────────────────────────────────────────
+
+    // PUT .../tags/no_reply_needed — no body, sets the tag
+    private static async Task<IResult> SetNoReplyNeeded(
+        string propertyId, string conversationId,
+        HttpContext context, SimulatorDbContext db, IConfiguration config, CancellationToken ct)
+    {
+        if (!Authorize(config, context)) return Results.Unauthorized();
+        var (conv, _) = await LoadConversation(propertyId, conversationId, db, ct);
+        if (conv == null) return Results.NotFound();
+        conv.NoReplyNeeded = true;
+        await db.SaveChangesAsync(ct);
+        return Envelope(new { ok = true, tag = "no_reply_needed", is_set = true });
+    }
+
+    // DELETE .../tags/no_reply_needed — no body, removes the tag
+    private static async Task<IResult> RemoveNoReplyNeeded(
+        string propertyId, string conversationId,
+        HttpContext context, SimulatorDbContext db, IConfiguration config, CancellationToken ct)
+    {
+        if (!Authorize(config, context)) return Results.Unauthorized();
+        var (conv, _) = await LoadConversation(propertyId, conversationId, db, ct);
+        if (conv == null) return Results.NotFound();
+        conv.NoReplyNeeded = false;
+        await db.SaveChangesAsync(ct);
+        return Envelope(new { ok = true, tag = "no_reply_needed", is_set = false });
+    }
+
+    // PUT .../tags/message_read — body: { message_ids: [], participant_id: "" }
+    private static async Task<IResult> SetMessageRead(
+        string propertyId, string conversationId,
+        HttpContext context, SimulatorDbContext db, IConfiguration config, CancellationToken ct)
+    {
+        if (!Authorize(config, context)) return Results.Unauthorized();
+        var (conv, _) = await LoadConversation(propertyId, conversationId, db, ct);
+        if (conv == null) return Results.NotFound();
+        var body = await context.Request.ReadFromJsonAsync<MessageReadBody>(ct);
+        if (body?.MessageIds is { Length: > 0 } ids)
+        {
+            var messages = await db.Messages
+                .Where(m => m.ConversationId == conv.Id && ids.Contains(m.MessageId))
+                .ToListAsync(ct);
+            foreach (var msg in messages) msg.IsRead = true;
+            await db.SaveChangesAsync(ct);
+        }
+        return Envelope(new { ok = true, tag = "read", is_set = true });
+    }
+
+    // DELETE .../tags/message_read — body: { message_ids: [], participant_id: "" }
+    private static async Task<IResult> RemoveMessageRead(
+        string propertyId, string conversationId,
+        HttpContext context, SimulatorDbContext db, IConfiguration config, CancellationToken ct)
+    {
+        if (!Authorize(config, context)) return Results.Unauthorized();
+        var (conv, _) = await LoadConversation(propertyId, conversationId, db, ct);
+        if (conv == null) return Results.NotFound();
+        var body = await context.Request.ReadFromJsonAsync<MessageReadBody>(ct);
+        if (body?.MessageIds is { Length: > 0 } ids)
+        {
+            var messages = await db.Messages
+                .Where(m => m.ConversationId == conv.Id && ids.Contains(m.MessageId))
+                .ToListAsync(ct);
+            foreach (var msg in messages) msg.IsRead = false;
+            await db.SaveChangesAsync(ct);
+        }
+        // is_set: true — means "operation succeeded" for message_read (matches real API behaviour)
+        return Envelope(new { ok = true, tag = "read", is_set = true });
+    }
+
+    /// Shared helper: resolves property + conversation, returns (null, null) if either not found.
+    private static async Task<(Conversation? conv, Property? property)> LoadConversation(
+        string propertyId, string conversationId, SimulatorDbContext db, CancellationToken ct)
+    {
+        var property = await db.Properties.FirstOrDefaultAsync(p => p.PropertyId == propertyId, ct);
+        if (property == null) return (null, null);
+        var conv = await db.Conversations
+            .FirstOrDefaultAsync(c => c.PropertyId == property.Id && c.ConversationId == conversationId, ct);
+        return (conv, property);
+    }
+
     // ── Auth ──────────────────────────────────────────────────────────────────
 
     private static bool Authorize(IConfiguration config, HttpContext? context = null)
@@ -362,3 +452,14 @@ internal sealed class PostMessageInner
     [JsonPropertyName("attachment_ids")]
     public string[]? AttachmentIds { get; set; }
 }
+
+[EditorBrowsable(EditorBrowsableState.Never)]
+internal sealed class MessageReadBody
+{
+    [JsonPropertyName("message_ids")]
+    public string[]? MessageIds { get; set; }
+
+    [JsonPropertyName("participant_id")]
+    public string? ParticipantId { get; set; }
+}
+

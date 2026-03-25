@@ -162,4 +162,86 @@ public sealed class SimulatorEndpointsTests : IClassFixture<SimulatorWebApplicat
         var response = await _client.GetAsync("/messaging/messages/search/result/00000000-0000-0000-0000-000000000000");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
+
+    [Fact]
+    public async Task PUT_conversation_tag_no_reply_needed_sets_and_reflects_in_get()
+    {
+        // PUT sets the tag (no body required)
+        var putResponse = await _client.PutAsync(
+            $"/messaging/properties/{PropertyId}/conversations/{ConversationId}/tags/no_reply_needed",
+            new StringContent("", System.Text.Encoding.UTF8, "application/json"));
+        putResponse.EnsureSuccessStatusCode();
+        var putJson = await putResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var putData = putJson.GetProperty("data");
+        Assert.True(putData.GetProperty("ok").GetBoolean());
+        Assert.Equal("no_reply_needed", putData.GetProperty("tag").GetString());
+        Assert.True(putData.GetProperty("is_set").GetBoolean());
+
+        // Verify reflected in GET conversation detail
+        var getJson = await (await _client.GetAsync(
+            $"/messaging/properties/{PropertyId}/conversations/{ConversationId}"))
+            .Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(getJson.GetProperty("data").GetProperty("conversation")
+            .GetProperty("tags").GetProperty("no_reply_needed").GetProperty("set").GetBoolean());
+
+        // DELETE removes the tag
+        var deleteResponse = await _client.DeleteAsync(
+            $"/messaging/properties/{PropertyId}/conversations/{ConversationId}/tags/no_reply_needed");
+        deleteResponse.EnsureSuccessStatusCode();
+        var deleteJson = await deleteResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var deleteData = deleteJson.GetProperty("data");
+        Assert.True(deleteData.GetProperty("ok").GetBoolean());
+        Assert.Equal("no_reply_needed", deleteData.GetProperty("tag").GetString());
+        Assert.False(deleteData.GetProperty("is_set").GetBoolean());
+    }
+
+    [Fact]
+    public async Task PUT_DELETE_message_read_tag_sets_and_unsets()
+    {
+        // Post a message first to get a message_id
+        var sendBody = JsonSerializer.Serialize(new { message = new { content = "Tag read test" } });
+        var sendJson = await (await _client.PostAsync(
+            $"/messaging/properties/{PropertyId}/conversations/{ConversationId}",
+            new StringContent(sendBody, System.Text.Encoding.UTF8, "application/json")))
+            .Content.ReadFromJsonAsync<JsonElement>();
+        var messageId = sendJson.GetProperty("data").GetProperty("message_id").GetString();
+        Assert.NotNull(messageId);
+
+        var participantId = "893af63e-b32a-5751-af59-b657dc5c9602";
+
+        // PUT tags the messages as read
+        var putBody = JsonSerializer.Serialize(new { message_ids = new[] { messageId }, participant_id = participantId });
+        var putResponse = await _client.PutAsync(
+            $"/messaging/properties/{PropertyId}/conversations/{ConversationId}/tags/message_read",
+            new StringContent(putBody, System.Text.Encoding.UTF8, "application/json"));
+        putResponse.EnsureSuccessStatusCode();
+        var putJson = await putResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var putData = putJson.GetProperty("data");
+        Assert.True(putData.GetProperty("ok").GetBoolean());
+        Assert.Equal("read", putData.GetProperty("tag").GetString());
+        Assert.True(putData.GetProperty("is_set").GetBoolean());
+
+        // Verify reflected in GET conversation detail
+        var getJson = await (await _client.GetAsync(
+            $"/messaging/properties/{PropertyId}/conversations/{ConversationId}"))
+            .Content.ReadFromJsonAsync<JsonElement>();
+        var messages = getJson.GetProperty("data").GetProperty("conversation").GetProperty("messages");
+        var match = messages.EnumerateArray().FirstOrDefault(m => m.GetProperty("message_id").GetString() == messageId);
+        Assert.True(match.GetProperty("tags").GetProperty("read").GetProperty("set").GetBoolean());
+
+        // DELETE unmarks the messages as read
+        var deleteBody = JsonSerializer.Serialize(new { message_ids = new[] { messageId }, participant_id = participantId });
+        var deleteResponse = await _client.SendAsync(new HttpRequestMessage(HttpMethod.Delete,
+            $"/messaging/properties/{PropertyId}/conversations/{ConversationId}/tags/message_read")
+        {
+            Content = new StringContent(deleteBody, System.Text.Encoding.UTF8, "application/json")
+        });
+        deleteResponse.EnsureSuccessStatusCode();
+        var deleteJson = await deleteResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var deleteData = deleteJson.GetProperty("data");
+        Assert.True(deleteData.GetProperty("ok").GetBoolean());
+        Assert.Equal("read", deleteData.GetProperty("tag").GetString());
+        // Real API returns is_set:true for DELETE message_read (means "operation succeeded", not current state)
+        Assert.True(deleteData.GetProperty("is_set").GetBoolean());
+    }
 }

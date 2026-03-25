@@ -7,6 +7,7 @@ public class Message
     public string Content { get; set; } = string.Empty;
     public string MessageType { get; set; } = "free_text";
     public DateTime TimestampUtc { get; set; }
+    public bool IsRead { get; set; } = false;
 
     public int ConversationId { get; set; }
     public Conversation Conversation { get; set; } = null!;
