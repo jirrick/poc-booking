@@ -20,6 +20,8 @@ var app = builder.Build();
 
 await using (var db = app.Services.GetRequiredService<IDbContextFactory<SimulatorDbContext>>().CreateDbContext())
 {
+    if (app.Configuration.GetValue<bool>("Testing:ResetDb"))
+        await db.Database.EnsureDeletedAsync();
     await db.Database.MigrateAsync();
     await SimulatorDbSeed.SeedAsync(db);
 }

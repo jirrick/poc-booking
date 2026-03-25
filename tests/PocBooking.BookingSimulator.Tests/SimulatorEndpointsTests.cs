@@ -62,9 +62,16 @@ public sealed class SimulatorEndpointsTests : IClassFixture<SimulatorWebApplicat
         var response = await _client.GetAsync($"/messaging/properties/{PropertyId}/conversations/{ConversationId}");
         response.EnsureSuccessStatusCode();
         var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        // Real API shape: { meta, data: { conversation: { ... }, ok }, errors, warnings }
+        Assert.True(json.TryGetProperty("meta", out _));
         var data = json.GetProperty("data");
-        Assert.Equal(ConversationId, data.GetProperty("conversation_id").GetString());
-        Assert.True(data.TryGetProperty("messages", out _));
+        Assert.True(data.GetProperty("ok").GetBoolean());
+        var conv = data.GetProperty("conversation");
+        Assert.Equal(ConversationId, conv.GetProperty("conversation_id").GetString());
+        Assert.True(conv.TryGetProperty("messages", out _));
+        Assert.True(conv.TryGetProperty("participants", out _));
+        Assert.True(conv.TryGetProperty("access", out _));
+        Assert.True(conv.TryGetProperty("tags", out _));
     }
 
     [Fact]
@@ -76,9 +83,13 @@ public sealed class SimulatorEndpointsTests : IClassFixture<SimulatorWebApplicat
             new StringContent(body, System.Text.Encoding.UTF8, "application/json"));
         response.EnsureSuccessStatusCode();
         var json = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.True(json.TryGetProperty("message_id", out var msgId));
+        // Real API shape: { meta, data: { message_id, ok, guest_has_account }, errors, warnings }
+        Assert.True(json.TryGetProperty("meta", out _));
+        var data = json.GetProperty("data");
+        Assert.True(data.TryGetProperty("message_id", out var msgId));
         Assert.False(string.IsNullOrEmpty(msgId.GetString()));
-        Assert.True(json.GetProperty("ok").GetBoolean());
+        Assert.True(data.GetProperty("ok").GetBoolean());
+        Assert.True(data.GetProperty("guest_has_account").GetBoolean());
     }
 
     [Fact]
@@ -125,7 +136,7 @@ public sealed class SimulatorEndpointsTests : IClassFixture<SimulatorWebApplicat
         response.EnsureSuccessStatusCode();
         var html = await response.Content.ReadAsStringAsync();
         Assert.Contains(ConversationId, html);
-        Assert.Contains("Send message", html);
+        Assert.Contains("btn-warning", html); // Send button is present
     }
 
     [Fact]

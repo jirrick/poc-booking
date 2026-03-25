@@ -13,6 +13,7 @@ public static class MessagingEndpoints
     private const string Base = "/messaging";
     private const int DefaultPageSize = 50;
     private static readonly TimeSpan SearchJobTtl = TimeSpan.FromHours(48);
+    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = false };
 
     public static void MapMessagingEndpoints(this IEndpointRouteBuilder routes)
     {
@@ -29,6 +30,53 @@ public static class MessagingEndpoints
         group.MapGet("/messages/search/result/{jobId}", GetMessageSearchResult)
             .WithName("GetMessageSearchResult");
     }
+
+    // ── Response helpers ──────────────────────────────────────────────────────
+
+    private static IResult Envelope(object data, int statusCode = 200) =>
+        Results.Json(new
+        {
+            meta = new { ruid = GenerateRuid() },
+            data,
+            errors = Array.Empty<object>(),
+            warnings = Array.Empty<object>()
+        }, statusCode: statusCode, options: JsonOptions);
+
+    private static string GenerateRuid()
+    {
+        var bytes = System.Security.Cryptography.RandomNumberGenerator.GetBytes(72);
+        return "UmFuZG9tSVYkc2RlIyh9Y" + Convert.ToBase64String(bytes);
+    }
+
+    private static object MapParticipant(Participant p, string propertyExternalId)
+    {
+        if (p.ParticipantType is "hotel" or "property")
+            return new { participant_id = p.ParticipantId, metadata = new { type = "property", id = propertyExternalId } };
+        return new { participant_id = p.ParticipantId, metadata = new { type = "guest" } };
+    }
+
+    // List endpoint: sender_id string, attachment_files_uuid, no tags, no message_type
+    private static object MapMessageForList(Message m) => new
+    {
+        message_id = m.MessageId,
+        timestamp = m.TimestampUtc.ToString("O"),
+        sender_id = m.Sender.ParticipantId,
+        content = m.Content,
+        attachment_files_uuid = Array.Empty<string>()
+    };
+
+    // Detail endpoint: sender_id string, attachment_ids, tags.read, no message_type
+    private static object MapMessageForDetail(Message m) => new
+    {
+        message_id = m.MessageId,
+        timestamp = m.TimestampUtc.ToString("O"),
+        sender_id = m.Sender.ParticipantId,
+        content = m.Content,
+        attachment_ids = Array.Empty<string>(),
+        tags = new { read = new { set = false } }
+    };
+
+    // ── Endpoint handlers ─────────────────────────────────────────────────────
 
     private static async Task<IResult> GetConversations(
         string propertyId,
@@ -47,48 +95,48 @@ public static class MessagingEndpoints
             .Where(c => c.PropertyId == property.Id)
             .OrderByDescending(c => c.Id);
 
-        var pageSize = DefaultPageSize;
         var offset = 0;
         if (!string.IsNullOrEmpty(page_id) && int.TryParse(page_id, out var parsedOffset))
             offset = parsedOffset;
 
-        var conversations = await query.Skip(offset).Take(pageSize + 1).ToListAsync(ct);
-        var hasMore = conversations.Count > pageSize;
-        if (hasMore) conversations = conversations.Take(pageSize).ToList();
+        var conversations = await query.Skip(offset).Take(DefaultPageSize + 1).ToListAsync(ct);
+        var hasMore = conversations.Count > DefaultPageSize;
+        if (hasMore) conversations = conversations.Take(DefaultPageSize).ToList();
 
-        var nextPageId = hasMore ? (offset + pageSize).ToString() : null;
+        var nextPageId = hasMore ? (offset + DefaultPageSize).ToString() : null;
+
+        // Load all participants for this property once
+        var allParticipants = await db.Participants
+            .Where(p => p.PropertyId == property.Id)
+            .ToListAsync(ct);
 
         var list = new List<object>();
         foreach (var c in conversations)
         {
-            var latestMessage = await db.Messages
+            var messages = await db.Messages
                 .Where(m => m.ConversationId == c.Id)
-                .OrderByDescending(m => m.TimestampUtc)
+                .OrderBy(m => m.TimestampUtc)
                 .Include(m => m.Sender)
-                .FirstOrDefaultAsync(ct);
-            var participants = await db.Participants
-                .Where(p => db.Messages.Any(m => m.ConversationId == c.Id && m.SenderParticipantId == p.Id))
-                .Select(p => new { participant_id = p.ParticipantId, metadata = new { name = p.Name, participant_type = p.ParticipantType } })
-                .Distinct()
                 .ToListAsync(ct);
+
             list.Add(new
             {
                 conversation_id = c.ConversationId,
                 conversation_reference = c.ConversationReference,
                 conversation_type = c.ConversationType,
-                messages = latestMessage == null ? Array.Empty<object>() : new[] { MapMessage(latestMessage) },
-                participants
+                access = "read_write",
+                tags = new { no_reply_needed = new { set = false } },
+                messages = messages.Select(MapMessageForList).ToList(),
+                participants = allParticipants.Select(p => MapParticipant(p, property.PropertyId)).ToList()
             });
         }
 
-        return Results.Json(new
+        return Envelope(new
         {
-            data = new
-            {
-                conversations = list,
-                next_page_id = nextPageId
-            }
-        }, options: JsonOptions);
+            conversations = list,
+            ok = true,
+            next_page_id = nextPageId
+        });
     }
 
     private static async Task<IResult> GetConversation(
@@ -110,24 +158,23 @@ public static class MessagingEndpoints
         if (conv == null) return Results.NotFound();
 
         var participants = await db.Participants
-            .Where(p => db.Messages.Any(m => m.ConversationId == conv.Id && m.SenderParticipantId == p.Id))
-            .Select(p => new { participant_id = p.ParticipantId, metadata = new { name = p.Name, participant_type = p.ParticipantType } })
-            .Distinct()
+            .Where(p => p.PropertyId == property.Id)
             .ToListAsync(ct);
 
-        var messages = conv.Messages.Select(MapMessage).ToList();
-
-        return Results.Json(new
+        return Envelope(new
         {
-            data = new
+            conversation = new
             {
                 conversation_id = conv.ConversationId,
                 conversation_reference = conv.ConversationReference,
                 conversation_type = conv.ConversationType,
-                messages,
-                participants
-            }
-        }, options: JsonOptions);
+                access = "read_write",
+                tags = new { no_reply_needed = new { set = false } },
+                messages = conv.Messages.Select(MapMessageForDetail).ToList(),
+                participants = participants.Select(p => MapParticipant(p, property.PropertyId)).ToList()
+            },
+            ok = true
+        });
     }
 
     private static async Task<IResult> PostMessage(
@@ -172,12 +219,12 @@ public static class MessagingEndpoints
 
         await webhookSender.SendNewMessageNotificationAsync(message, ct);
 
-        return Results.Json(new
+        return Envelope(new
         {
             message_id = message.MessageId,
             ok = true,
             guest_has_account = true
-        }, statusCode: 200, options: JsonOptions);
+        });
     }
 
     private static async Task<IResult> CreateMessageSearchJob(
@@ -213,15 +260,12 @@ public static class MessagingEndpoints
         });
         await db.SaveChangesAsync(ct);
 
-        return Results.Json(new
+        return Envelope(new
         {
-            data = new
-            {
-                job_id = jobId,
-                expires_at = now.Add(SearchJobTtl).ToString("O"),
-                ok = true
-            }
-        }, options: JsonOptions);
+            job_id = jobId,
+            expires_at = now.Add(SearchJobTtl).ToString("O"),
+            ok = true
+        });
     }
 
     private static async Task<IResult> GetMessageSearchResult(
@@ -266,14 +310,11 @@ public static class MessagingEndpoints
         var list = messages.Select(m => new
         {
             message_id = m.MessageId,
-            message_type = m.MessageType,
             timestamp = m.TimestampUtc.ToString("O"),
+            sender_id = m.Sender.ParticipantId,
             content = m.Content,
-            sender = new
-            {
-                participant_id = m.Sender.ParticipantId,
-                metadata = new { name = m.Sender.Name, participant_type = m.Sender.ParticipantType }
-            },
+            attachment_ids = Array.Empty<string>(),
+            tags = new { read = new { set = false } },
             conversation = new
             {
                 property_id = m.Conversation.Property.PropertyId,
@@ -283,31 +324,14 @@ public static class MessagingEndpoints
             }
         }).ToList();
 
-        return Results.Json(new
+        return Envelope(new
         {
-            data = new
-            {
-                messages = list,
-                next_page_id = nextPageId
-            }
-        }, options: JsonOptions);
+            messages = list,
+            next_page_id = nextPageId
+        });
     }
 
-    private static object MapMessage(Message m)
-    {
-        return new
-        {
-            message_id = m.MessageId,
-            message_type = m.MessageType,
-            timestamp = m.TimestampUtc.ToString("O"),
-            content = m.Content,
-            sender = new
-            {
-                participant_id = m.Sender.ParticipantId,
-                metadata = new { name = m.Sender.Name, participant_type = m.Sender.ParticipantType }
-            }
-        };
-    }
+    // ── Auth ──────────────────────────────────────────────────────────────────
 
     private static bool Authorize(IConfiguration config, HttpContext? context = null)
     {
@@ -320,8 +344,6 @@ public static class MessagingEndpoints
         var token = auth["Bearer ".Length..].Trim();
         return token == apiKey;
     }
-
-    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = false };
 }
 
 [EditorBrowsable(EditorBrowsableState.Never)]

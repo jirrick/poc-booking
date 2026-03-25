@@ -9,7 +9,7 @@ namespace PocBooking.BookingSimulator.Tests;
 
 public sealed class SimulatorWebApplicationFactory : WebApplicationFactory<Program>
 {
-    private static readonly string TestDbPath = Path.Combine(Path.GetTempPath(), $"simulator-test-{Guid.NewGuid():N}.db");
+    private readonly string _testDbPath = Path.Combine(Path.GetTempPath(), $"simulator-test-{Guid.NewGuid():N}.db");
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -18,10 +18,18 @@ public sealed class SimulatorWebApplicationFactory : WebApplicationFactory<Progr
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ConnectionStrings:DefaultConnection"] = $"Data Source={TestDbPath}",
+                ["ConnectionStrings:DefaultConnection"] = $"Data Source={_testDbPath}",
                 ["BookingSimulator:SendWebhookOnNewMessage"] = "false",
-                ["BookingSimulator:PocWebhookBaseUrl"] = ""
+                ["BookingSimulator:PocWebhookBaseUrl"] = "",
+                ["Testing:ResetDb"] = "true"
             });
         });
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+        if (disposing && File.Exists(_testDbPath))
+            File.Delete(_testDbPath);
     }
 }
