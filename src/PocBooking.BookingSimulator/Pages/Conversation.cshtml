@@ -6,7 +6,13 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <a href="/" class="btn btn-outline-secondary btn-sm">← Conversations</a>
-    <span class="text-muted small"><strong>@Model.PropertyName</strong> · ref: <code>@Model.ConversationReference</code></span>
+    <div class="d-flex align-items-center gap-2">
+        <span class="text-muted small"><strong>@Model.PropertyName</strong> · ref: <code>@Model.ConversationReference</code></span>
+        @if (Model.NoReplyNeeded)
+        {
+            <span class="badge bg-warning text-dark">🔕 No reply needed</span>
+        }
+    </div>
 </div>
 
 @* Guest identity card *@
@@ -45,10 +51,18 @@ else
             var isHotel = m.SenderType == "hotel";
             <div class="d-flex @(isHotel ? "justify-content-end" : "justify-content-start")">
                 <div class="chat-bubble @(isHotel ? "hotel" : "guest") rounded p-2">
-                    <div class="msg-meta mb-1">
+                    <div class="msg-meta mb-1 d-flex align-items-center gap-1 flex-wrap">
                         <strong>@m.SenderName</strong>
                         <span class="badge @(isHotel ? "bg-secondary" : "bg-warning text-dark") ms-1" style="font-size:.65rem">@m.SenderType</span>
-                        · @m.TimestampUtc.ToString("HH:mm") UTC
+                        <span class="text-muted" style="font-size:.75rem">· @m.TimestampUtc.ToString("HH:mm") UTC</span>
+                        @if (m.IsRead)
+                        {
+                            <span class="badge bg-success" style="font-size:.6rem" title="Guest has read this">✓✓ read</span>
+                        }
+                        else if (isHotel)
+                        {
+                            <span class="badge bg-light text-muted border" style="font-size:.6rem">unread</span>
+                        }
                     </div>
                     <div>@m.Content</div>
                 </div>
@@ -58,7 +72,7 @@ else
     <div class="card-footer">
         @if (TempData["Success"] is string ok) { <div class="alert alert-success py-1 small mb-2">@ok</div> }
         @if (TempData["Error"] is string err) { <div class="alert alert-danger py-1 small mb-2">@err</div> }
-        <p class="text-muted small mb-2">Send as <strong>guest</strong> → POC receives CNS webhook. Send as <strong>hotel</strong> → stored only (no webhook).</p>
+        <p class="text-muted small mb-2">Send as <strong>guest</strong> → POC receives CNS webhook + hotel messages marked read. Send as <strong>hotel</strong> → stored only (no webhook).</p>
         <form method="post" asp-page-handler="SendMessage"
               asp-route-propertyId="@Model.PropertyId"
               asp-route-conversationId="@Model.ConversationId">

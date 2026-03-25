@@ -40,6 +40,7 @@ public class IndexModel : PageModel
                 ConversationId = c.ConversationId,
                 ConversationReference = c.ConversationReference,
                 ConversationType = c.ConversationType,
+                NoReplyNeeded = c.NoReplyNeeded,
                 GuestName = c.GuestParticipant?.Name,
                 LastMessagePreview = latest?.Content?.Length > 80 ? latest.Content[..80] + "…" : latest?.Content,
                 LastMessageAt = latest?.TimestampUtc,
@@ -52,6 +53,7 @@ public class IndexModel : PageModel
         public string ConversationId { get; set; } = "";
         public string ConversationReference { get; set; } = "";
         public string ConversationType { get; set; } = "";
+        public bool NoReplyNeeded { get; set; }
         public string? GuestName { get; set; }
         public string? LastMessagePreview { get; set; }
         public DateTime? LastMessageAt { get; set; }

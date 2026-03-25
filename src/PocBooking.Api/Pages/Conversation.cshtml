@@ -2,6 +2,9 @@
 @model PocBooking.Api.Pages.ConversationModel
 @{
     ViewData["Title"] = "Conversation";
+    var unreadGuestMessageIds = string.Join(",", Model.Messages
+        .Where(m => m.SenderType == "guest" && !m.IsRead)
+        .Select(m => m.MessageId));
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -66,12 +69,54 @@ else
         <!-- Thread -->
         <div class="col-12">
             <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center py-2">
-                    <span class="fw-semibold">Thread</span>
-                    @if (!string.IsNullOrEmpty(Model.ConversationReference))
-                    {
-                        <span class="text-muted small">ref: <code>@Model.ConversationReference</code></span>
-                    }
+                <div class="card-header py-2">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="fw-semibold">Thread</span>
+                            @if (!string.IsNullOrEmpty(Model.ConversationReference))
+                            {
+                                <span class="text-muted small">ref: <code>@Model.ConversationReference</code></span>
+                            }
+                            @if (Model.Access == "read_only")
+                            {
+                                <span class="badge bg-secondary">read-only</span>
+                            }
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            @* no_reply_needed tag toggle *@
+                            @if (Model.NoReplyNeeded)
+                            {
+                                <span class="badge bg-warning text-dark">🔕 No reply needed</span>
+                                <form method="post" asp-page-handler="SetNoReplyNeeded"
+                                      asp-route-propertyId="@Model.PropertyId"
+                                      asp-route-conversationId="@Model.ConversationId"
+                                      asp-route-value="false" class="d-inline">
+                                    <button type="submit" class="btn btn-outline-secondary btn-sm">Remove tag</button>
+                                </form>
+                            }
+                            else
+                            {
+                                <span class="badge bg-light text-muted border">No tag</span>
+                                <form method="post" asp-page-handler="SetNoReplyNeeded"
+                                      asp-route-propertyId="@Model.PropertyId"
+                                      asp-route-conversationId="@Model.ConversationId"
+                                      asp-route-value="true" class="d-inline">
+                                    <button type="submit" class="btn btn-outline-warning btn-sm">🔕 Mark no reply needed</button>
+                                </form>
+                            }
+                            @* Mark all unread guest messages as read *@
+                            @if (!string.IsNullOrEmpty(unreadGuestMessageIds) && !string.IsNullOrEmpty(Model.PropertyParticipantId))
+                            {
+                                <form method="post" asp-page-handler="MarkRead"
+                                      asp-route-propertyId="@Model.PropertyId"
+                                      asp-route-conversationId="@Model.ConversationId"
+                                      asp-route-participantId="@Model.PropertyParticipantId"
+                                      asp-route-messageIds="@unreadGuestMessageIds" class="d-inline">
+                                    <button type="submit" class="btn btn-outline-primary btn-sm">✓ Mark all read</button>
+                                </form>
+                            }
+                        </div>
+                    </div>
                 </div>
                 <div class="card-body d-flex flex-column gap-2" style="max-height:480px;overflow-y:auto;">
                     @if (!Model.Messages.Any())
@@ -80,12 +125,20 @@ else
                     }
                     @foreach (var msg in Model.Messages)
                     {
-                        var isHotel = msg.SenderType == "hotel" || msg.SenderType == "property";
-                        <div class="d-flex @(isHotel ? "justify-content-end" : "justify-content-start")">
-                            <div class="chat-bubble @(isHotel ? "hotel" : "guest") rounded p-2">
-                                <div class="msg-meta mb-1">
-                                    <strong>@(string.IsNullOrEmpty(msg.SenderName) ? msg.SenderType : msg.SenderName)</strong>
-                                    · @msg.TimestampUtc.ToString("yyyy-MM-dd HH:mm") UTC
+                        var isProperty = msg.SenderType == "property" || msg.SenderType == "hotel";
+                        <div class="d-flex @(isProperty ? "justify-content-end" : "justify-content-start")">
+                            <div class="chat-bubble @(isProperty ? "hotel" : "guest") rounded p-2" style="max-width:80%">
+                                <div class="msg-meta mb-1 d-flex align-items-center gap-1 flex-wrap">
+                                    <span class="badge @(isProperty ? "bg-secondary" : "bg-warning text-dark")" style="font-size:.65rem">@msg.SenderType</span>
+                                    <span class="text-muted" style="font-size:.75rem">@msg.TimestampUtc.ToString("yyyy-MM-dd HH:mm") UTC</span>
+                                    @if (msg.IsRead)
+                                    {
+                                        <span class="badge bg-success" style="font-size:.6rem" title="Read">✓✓ read</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-light text-muted border" style="font-size:.6rem">unread</span>
+                                    }
                                 </div>
                                 <div>@msg.Content</div>
                             </div>

@@ -58,6 +58,10 @@ else
                                     <span class="fw-semibold text-muted">@c.ConversationId</span>
                                     <span class="badge bg-warning text-dark">not yet mapped</span>
                                 }
+                                @if (c.NoReplyNeeded)
+                                {
+                                    <span class="badge bg-warning text-dark">🔕 No reply needed</span>
+                                }
                             </div>
                             <div class="text-muted small mt-1 d-flex flex-wrap gap-2">
                                 @if (!string.IsNullOrEmpty(c.ConversationReference))
@@ -75,10 +79,23 @@ else
                                 <span class="text-muted">Conv: <code>@c.ConversationId</code></span>
                             </div>
                         </div>
-                        @if (c.LastMessagePreview != null)
-                        {
-                            <span class="text-muted small text-truncate" style="max-width:280px">@c.LastMessagePreview</span>
-                        }
+                        <div class="d-flex align-items-center gap-2">
+                            @if (c.LastMessagePreview != null)
+                            {
+                                <span class="text-muted small text-truncate" style="max-width:200px">@c.LastMessagePreview</span>
+                            }
+                            <form method="post" asp-page-handler="SetNoReplyNeeded"
+                                  asp-route-propertyId="@Model.PropertyId"
+                                  asp-route-conversationId="@c.ConversationId"
+                                  asp-route-value="@(!c.NoReplyNeeded)"
+                                  class="d-inline" onclick="event.stopPropagation()">
+                                <button type="submit"
+                                        class="btn btn-sm @(c.NoReplyNeeded ? "btn-warning" : "btn-outline-secondary")"
+                                        title="@(c.NoReplyNeeded ? "Remove no reply needed tag" : "Mark as no reply needed")">
+                                    🔕
+                                </button>
+                            </form>
+                        </div>
                     </div>
                 </a>
             }

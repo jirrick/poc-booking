@@ -54,6 +54,7 @@ public class ConversationsModel(IBookingApiClient bookingApi, IConversationMappi
                 InternalReservationId = mapping?.InternalReservationId,
                 GuestName = mapping?.GuestName,
                 InternalGuestId = mapping?.InternalGuestId,
+                NoReplyNeeded = c.Tags?.NoReplyNeeded?.Set ?? false,
                 HasMessages = lastMsg != null,
                 LastMessagePreview = lastMsg?.Content?.Length > 60 ? lastMsg.Content[..60] + "…" : lastMsg?.Content,
             });
@@ -80,6 +81,21 @@ public class ConversationsModel(IBookingApiClient bookingApi, IConversationMappi
         return RedirectToPage("/Conversation", new { propertyId, conversationId });
     }
 
+    public async Task<IActionResult> OnPostSetNoReplyNeededAsync(
+        string propertyId, string conversationId, bool value, CancellationToken ct = default)
+    {
+        var response = value
+            ? await bookingApi.SetNoReplyNeededAsync(propertyId, conversationId, ct)
+            : await bookingApi.RemoveNoReplyNeededAsync(propertyId, conversationId, ct);
+
+        if (response?.Data == null || !response.Data.Ok)
+            TempData["Error"] = response?.Error ?? "Failed to update tag.";
+        else
+            TempData["Success"] = value ? "Marked as no reply needed." : "No reply needed tag removed.";
+
+        return RedirectToPage(new { propertyId });
+    }
+
     public sealed class ConversationRow
     {
         public string ConversationId { get; set; } = "";
@@ -88,6 +104,7 @@ public class ConversationsModel(IBookingApiClient bookingApi, IConversationMappi
         public Guid? InternalReservationId { get; set; }
         public string? GuestName { get; set; }
         public Guid? InternalGuestId { get; set; }
+        public bool NoReplyNeeded { get; set; }
         public bool HasMessages { get; set; }
         public string? LastMessagePreview { get; set; }
     }

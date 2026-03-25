@@ -43,6 +43,10 @@ else
                             <div class="d-flex align-items-center gap-2">
                                 <span class="fw-semibold small">ref: <code>@c.ConversationReference</code></span>
                                 <span class="badge bg-secondary">@c.ConversationType</span>
+                                @if (c.NoReplyNeeded)
+                                {
+                                    <span class="badge bg-warning text-dark">🔕 No reply needed</span>
+                                }
                                 @if (c.GuestName != null)
                                 {
                                     <span class="badge bg-warning text-dark">👤 @c.GuestName</span>

@@ -21,9 +21,8 @@ public class ConversationModel : PageModel
     public string ConversationId { get; set; } = "";
     public string ConversationReference { get; set; } = "";
     public string? PropertyName { get; set; }
+    public bool NoReplyNeeded { get; set; }
     public List<MessageVm> Messages { get; set; } = new();
-    public string? SendAs { get; set; } = "guest";
-    public string? MessageContent { get; set; }
     public GuestVm? LinkedGuest { get; set; }
 
     public async Task<IActionResult> OnGetAsync(string propertyId, string conversationId, CancellationToken ct = default)
@@ -34,15 +33,16 @@ public class ConversationModel : PageModel
         ConversationId = conversationId;
         ConversationReference = conv.ConversationReference;
         PropertyName = prop.Name;
+        NoReplyNeeded = conv.NoReplyNeeded;
         Messages = conv.Messages.OrderBy(m => m.TimestampUtc)
             .Select(m => new MessageVm
             {
                 MessageId = m.MessageId,
                 Content = m.Content,
-                MessageType = m.MessageType,
                 TimestampUtc = m.TimestampUtc,
                 SenderName = m.Sender.Name,
                 SenderType = m.Sender.ParticipantType,
+                IsRead = m.IsRead,
             })
             .ToList();
         if (conv.GuestParticipant != null)
@@ -64,10 +64,7 @@ public class ConversationModel : PageModel
 
         Participant? sender;
         if (sendAs == "guest" && conv.GuestParticipantId.HasValue)
-        {
-            // Use the conversation's specific linked guest
             sender = await _db.Participants.FindAsync([conv.GuestParticipantId.Value], ct);
-        }
         else
         {
             var participants = await _db.Participants.Where(p => p.PropertyId == prop.Id).ToListAsync(ct);
@@ -90,6 +87,21 @@ public class ConversationModel : PageModel
             SenderParticipantId = sender.Id,
         };
         _db.Messages.Add(message);
+
+        // Simulate guest reading: when the guest sends, mark all unread hotel messages as read
+        if (sendAs == "guest")
+        {
+            var hotelParticipantIds = await _db.Participants
+                .Where(p => p.PropertyId == prop.Id && p.ParticipantType == "hotel")
+                .Select(p => p.Id)
+                .ToListAsync(ct);
+            var unreadHotelMessages = await _db.Messages
+                .Where(m => m.ConversationId == conv.Id && !m.IsRead && hotelParticipantIds.Contains(m.SenderParticipantId))
+                .ToListAsync(ct);
+            foreach (var m in unreadHotelMessages)
+                m.IsRead = true;
+        }
+
         await _db.SaveChangesAsync(ct);
         await _webhookSender.SendNewMessageNotificationAsync(message, ct);
         TempData["Success"] = $"Sent as {sender.Name} ({sender.ParticipantType}).";
@@ -111,10 +123,10 @@ public class ConversationModel : PageModel
     {
         public string MessageId { get; set; } = "";
         public string Content { get; set; } = "";
-        public string MessageType { get; set; } = "";
         public DateTime TimestampUtc { get; set; }
         public string SenderName { get; set; } = "";
         public string SenderType { get; set; } = "";
+        public bool IsRead { get; set; }
     }
 
     public class GuestVm
