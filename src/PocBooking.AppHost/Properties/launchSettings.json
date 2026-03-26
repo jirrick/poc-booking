@@ -14,6 +14,21 @@
         "ASPIRE_RESOURCE_SERVICE_ENDPOINT_URL": "http://localhost:15500",
         "ASPIRE_ALLOW_UNSECURED_TRANSPORT": "true"
       }
+    },
+    "BookingLive": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "applicationUrl": "http://localhost:15300",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "BookingLive",
+        "DOTNET_ENVIRONMENT": "BookingLive",
+        "ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL": "http://localhost:15400",
+        "ASPIRE_DASHBOARD_OTLP_HTTP_ENDPOINT_URL": "http://localhost:15401",
+        "ASPIRE_RESOURCE_SERVICE_ENDPOINT_URL": "http://localhost:15500",
+        "ASPIRE_ALLOW_UNSECURED_TRANSPORT": "true"
+      }
     }
   }
 }
+

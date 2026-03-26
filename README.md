@@ -171,6 +171,53 @@ dotnet run --project src/PocBooking.Api
 dotnet run --project src/PocBooking.BookingSimulator
 ```
 
+### Against real Booking.com (BookingLive profile)
+
+A dedicated `BookingLive` Aspire launch profile starts **only `poc-api`** (no simulator) and points it at the live Booking.com API. Credentials are kept out of source control via .NET user secrets.
+
+#### 1 — Store credentials in user secrets
+
+```bash
+cd src/PocBooking.Api
+
+dotnet user-secrets set "Booking:ClientId"          "<your-client-id>"
+dotnet user-secrets set "Booking:ClientSecret"      "<your-client-secret>"
+dotnet user-secrets set "Booking:DefaultPropertyId" "<your-property-id>"
+```
+
+User secrets are stored at `~/.microsoft/usersecrets/poc-booking-api/secrets.json` and are never committed to source control.
+
+#### 2 — Run the AppHost with the BookingLive profile
+
+```bash
+dotnet run --project src/PocBooking.AppHost --launch-profile BookingLive
+```
+
+Or select **BookingLive** from the run/debug profile dropdown in your IDE.
+
+What the profile does:
+
+- Sets `DOTNET_ENVIRONMENT=BookingLive` on the AppHost and `ASPNETCORE_ENVIRONMENT=BookingLive` on the API process.
+- The API loads `appsettings.BookingLive.json` which sets:
+  - `Booking:ApiBaseUrl` → `https://supply-xml.booking.com`
+  - `Booking:AuthBaseUrl` → `https://connectivity-authentication.booking.com`
+  - `Booking:Cns:RequireSignatureValidation` → `false` (CNS JWT validation against Booking's JWKS is not yet wired up)
+- User secrets are merged on top, supplying `ClientId`, `ClientSecret`, and `DefaultPropertyId`.
+- The simulator project is **not started**.
+
+#### 3 — Expose the webhook endpoint
+
+Booking.com CNS requires a publicly reachable HTTPS URL for webhook delivery. Use a tunnel while developing locally:
+
+```bash
+# ngrok
+ngrok http 5154
+
+# or Cloudflare Tunnel, VS Dev Tunnels, etc.
+```
+
+Register the resulting URL (`https://<tunnel-host>/api/webhooks/booking/cns`) as the CNS webhook endpoint in the Booking.com Provider Portal.
+
 ---
 
 ## PocBooking.Api
@@ -231,6 +278,7 @@ Database is created and migrated automatically on startup.
 | `Booking:AuthBaseUrl` | Base URL for token exchange. Defaults to `Booking:ApiBaseUrl` when not set. Real Booking.com: `https://connectivity-authentication.booking.com`. |
 | `Booking:ClientId` | `client_id` sent to the token exchange endpoint. Pre-filled in `appsettings.Development.json` for the simulator. |
 | `Booking:ClientSecret` | `client_secret` sent to the token exchange endpoint. |
+| `Booking:DefaultPropertyId` | Property ID pre-filled in the UI. Set per environment: simulator value in `appsettings.Development.json`, real property ID via user secrets for `BookingLive`. |
 | `Booking:Cns:JwtSigningKey` | Symmetric key for validating incoming CNS webhook JWTs. |
 | `Booking:Cns:JwtIssuer` | Expected `iss` claim in CNS webhook JWTs. |
 | `Booking:Cns:JwtAudience` | Expected `aud` claim in CNS webhook JWTs. |
@@ -348,15 +396,16 @@ Database is seeded on first run with one property, one hotel participant, and on
 
 ## Switching from simulator to real Booking.com
 
-The POC API is designed so that only configuration changes are needed to switch from the simulator to the real Booking.com API.
+The POC API is designed so that only configuration changes are needed to switch from the simulator to the real Booking.com API. See [Against real Booking.com (BookingLive profile)](#against-real-bookingcom-bookingLive-profile) for the step-by-step setup.
 
 | Concern | Simulator | Real Booking.com |
 |---------|-----------|------------------|
-| **Messaging API base URL** | `Booking:ApiBaseUrl` = `http://localhost:5160` | `Booking:ApiBaseUrl` = Booking's API base URL |
+| **Messaging API base URL** | `Booking:ApiBaseUrl` = `http://localhost:5160` | `Booking:ApiBaseUrl` = `https://supply-xml.booking.com` |
 | **Auth base URL** | `Booking:AuthBaseUrl` = (same as ApiBaseUrl) | `Booking:AuthBaseUrl` = `https://connectivity-authentication.booking.com` |
 | **Token exchange credentials** | `Booking:ClientId` / `Booking:ClientSecret` matching `BookingSimulator:Auth:ClientId/Secret` | `Booking:ClientId` / `Booking:ClientSecret` = real Booking.com credentials |
-| **CNS webhook JWT** | `Booking:Cns:JwtSigningKey/Issuer/Audience` matching simulator config | `Booking:Cns:JwtIssuer/Audience` = Booking's values; extend validator for JWKS if needed |
-| **Webhook accessibility** | Both services on localhost | POC's `/api/webhooks/booking/cns` must be publicly reachable |
+| **Property ID** | `Booking:DefaultPropertyId` = simulator property (e.g. `1383087`) | `Booking:DefaultPropertyId` = real Booking.com property ID |
+| **CNS webhook JWT** | `Booking:Cns:JwtSigningKey/Issuer/Audience` matching simulator config | `Booking:Cns:RequireSignatureValidation` = `false` for now; extend validator for JWKS when needed |
+| **Webhook accessibility** | Both services on localhost | POC's `/api/webhooks/booking/cns` must be publicly reachable (use a tunnel) |
 
 No code changes are required. All Messaging API endpoints consumed by the POC — conversations list, conversation thread, send message, and all four tag endpoints — are faithfully simulated with the exact same JSON wire format as the real Booking.com API.
 

@@ -22,4 +22,10 @@ public sealed class BookingApiOptions
 
     /// <summary>client_secret for token exchange (Booking:ClientSecret).</summary>
     public string? ClientSecret { get; set; }
+
+    /// <summary>
+    /// Default property ID shown in the UI. Use the simulator property in Development,
+    /// override via user secrets or environment variables for live environments.
+    /// </summary>
+    public string DefaultPropertyId { get; set; } = "1383087";
 }

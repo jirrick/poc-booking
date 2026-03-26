@@ -21,7 +21,7 @@ public class IndexModel : PageModel
 
     // ── Display properties ────────────────────────────────────────────────────
 
-    public string DefaultPropertyId { get; private set; } = "1383087";
+    public string DefaultPropertyId => _options.Value.DefaultPropertyId;
 
     public bool TokenIsValid => _tokenStore.IsValid;
     public DateTimeOffset? TokenExpiresAt => _tokenStore.ExpiresAt;
