@@ -118,7 +118,7 @@ else
                         </div>
                     </div>
                 </div>
-                <div class="card-body d-flex flex-column gap-2" style="max-height:480px;overflow-y:auto;">
+                <div id="chatThread" class="card-body d-flex flex-column gap-2" style="height:480px;min-height:120px;overflow-y:auto;resize:vertical;">
                     @if (!Model.Messages.Any())
                     {
                         <p class="text-muted small mb-0">No messages yet.</p>
@@ -162,3 +162,11 @@ else
         </div>
     </div>
 }
+
+@section Scripts {
+<script>
+    const thread = document.getElementById('chatThread');
+    if (thread) thread.scrollTop = thread.scrollHeight;
+</script>
+}
+
