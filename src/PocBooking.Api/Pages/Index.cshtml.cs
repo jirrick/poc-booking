@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
 using PocBooking.Api.BookingApi;
+using PocBooking.Api.Llm;
 
 namespace PocBooking.Api.Pages;
 
@@ -11,12 +12,21 @@ public class IndexModel : PageModel
     private readonly IBookingTokenStore _tokenStore;
     private readonly IBookingAuthClient _authClient;
     private readonly IOptions<BookingApiOptions> _options;
+    private readonly ILlmEmailParser _llmParser;
+    private readonly LlmSettingsStore _llmSettings;
 
-    public IndexModel(IBookingTokenStore tokenStore, IBookingAuthClient authClient, IOptions<BookingApiOptions> options)
+    public IndexModel(
+        IBookingTokenStore tokenStore,
+        IBookingAuthClient authClient,
+        IOptions<BookingApiOptions> options,
+        ILlmEmailParser llmParser,
+        LlmSettingsStore llmSettings)
     {
         _tokenStore = tokenStore;
         _authClient = authClient;
         _options = options;
+        _llmParser = llmParser;
+        _llmSettings = llmSettings;
     }
 
     // ── Display properties ────────────────────────────────────────────────────
@@ -27,7 +37,6 @@ public class IndexModel : PageModel
     public DateTimeOffset? TokenExpiresAt => _tokenStore.ExpiresAt;
     public string? TokenJwt => _tokenStore.Jwt;
 
-    /// <summary>Human-readable time-until-expiry (e.g. "54 min" or "Expired").</summary>
     public string TokenExpiryLabel
     {
         get
@@ -40,25 +49,35 @@ public class IndexModel : PageModel
         }
     }
 
-    /// <summary>Decoded JWT claims for display, null when no token.</summary>
     public Dictionary<string, string>? TokenClaims { get; private set; }
 
     [TempData] public string? TokenError { get; set; }
     [TempData] public string? TokenSuccess { get; set; }
+    [TempData] public string? LlmSuccess { get; set; }
+    [TempData] public string? LlmError { get; set; }
 
-    // ── Form binding ──────────────────────────────────────────────────────────
+    // ── Booking form binding ──────────────────────────────────────────────────
 
     [BindProperty] public string? ClientId { get; set; }
     [BindProperty] public string? ClientSecret { get; set; }
 
+    // ── LLM display / binding ─────────────────────────────────────────────────
+
+    public IReadOnlyList<string> LlmModels { get; private set; } = [];
+    public string? LlmCurrentModel => _llmSettings.SelectedModel;
+    public string LlmSystemPrompt => _llmSettings.SystemPrompt;
+
+    [BindProperty] public string? LlmModel { get; set; }
+    [BindProperty] public string? LlmSystemPromptInput { get; set; }
+
     // ── Handlers ──────────────────────────────────────────────────────────────
 
-    public void OnGet()
+    public async Task OnGetAsync(CancellationToken ct = default)
     {
-        // Pre-fill form from config so the user can click straight through in dev
         ClientId = _options.Value.ClientId;
         ClientSecret = _options.Value.ClientSecret;
         DecodeClaims();
+        LlmModels = await _llmParser.GetModelsAsync(ct);
     }
 
     public async Task<IActionResult> OnPostExchangeTokenAsync(CancellationToken ct)
@@ -87,6 +106,22 @@ public class IndexModel : PageModel
     {
         _tokenStore.Clear();
         TokenSuccess = "Token cleared.";
+        return RedirectToPage();
+    }
+
+    public IActionResult OnPostSaveLlmSettings()
+    {
+        if (string.IsNullOrWhiteSpace(LlmModel))
+        {
+            LlmError = "Please select a model.";
+            return RedirectToPage();
+        }
+
+        _llmSettings.SelectedModel = LlmModel.Trim();
+        if (!string.IsNullOrWhiteSpace(LlmSystemPromptInput))
+            _llmSettings.SystemPrompt = LlmSystemPromptInput;
+
+        LlmSuccess = $"LLM settings saved — model: {_llmSettings.SelectedModel}";
         return RedirectToPage();
     }
 

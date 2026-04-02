@@ -1,10 +1,12 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using PocBooking.Api.Auth;
 using PocBooking.Api.BookingApi;
 using PocBooking.Api.Data;
 using PocBooking.Api.Endpoints;
 using PocBooking.Api.Enrichment;
+using PocBooking.Api.Llm;
 using PocBooking.Api.Mapping;
 using PocBooking.Api.Processing;
 
@@ -36,6 +38,16 @@ builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<Pr
 
 builder.Services.AddRazorPages().AddRazorRuntimeCompilation();
 
+// ── LLM ──────────────────────────────────────────────────────────────────────
+builder.Services.Configure<LlmOptions>(builder.Configuration.GetSection(LlmOptions.SectionName));
+builder.Services.AddSingleton<LlmSettingsStore>();
+builder.Services.AddHttpClient<ILlmEmailParser, LlmEmailParser>((sp, client) =>
+{
+    var opts = sp.GetRequiredService<IOptions<LlmOptions>>().Value;
+    client.BaseAddress = new Uri(opts.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
 var app = builder.Build();
 
 app.UseHttpsRedirection();
@@ -60,6 +72,7 @@ app.MapGet("/api/health", async (AppDbContext db, CancellationToken ct) =>
 });
 
 app.MapBookingCnsWebhook();
+app.MapLlmEndpoints();
 app.MapRazorPages();
 app.MapGet("/", () => Results.Redirect("/Index"));
 

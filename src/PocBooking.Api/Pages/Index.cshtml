@@ -19,6 +19,20 @@
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 }
+@if (Model.LlmSuccess is not null)
+{
+    <div class="alert alert-success alert-dismissible fade show mt-2" role="alert">
+        @Model.LlmSuccess
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+@if (Model.LlmError is not null)
+{
+    <div class="alert alert-danger alert-dismissible fade show mt-2" role="alert">
+        <strong>LLM error:</strong> @Model.LlmError
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
 
 @* ── Token card ────────────────────────────────────────────────────────────── *@
 <div class="card mb-4">
@@ -92,6 +106,64 @@
                 </tbody>
             </table>
         }
+    </div>
+</div>
+
+@* ── LLM settings card ────────────────────────────────────────────────────── *@
+<div class="card mb-4">
+    <div class="card-header d-flex align-items-center gap-2 fw-semibold">
+        🤖 LLM Settings
+        @if (!string.IsNullOrEmpty(Model.LlmCurrentModel))
+        {
+            <span class="badge bg-success">@Model.LlmCurrentModel</span>
+        }
+        else
+        {
+            <span class="badge bg-secondary">No model selected</span>
+        }
+    </div>
+    <div class="card-body">
+        <p class="text-muted small mb-3">
+            Configure the local OpenAI-compatible LLM server used to parse <code>email</code>-type
+            messages on the Conversation page. Server base URL is set via
+            <code>Llm:BaseUrl</code> in appsettings (default: <code>http://localhost:11434</code>).
+        </p>
+        <form method="post" asp-page-handler="SaveLlmSettings">
+            <div class="row g-3 align-items-start">
+                <div class="col-md-4">
+                    <label class="form-label small mb-1 fw-semibold">Model</label>
+                    @if (Model.LlmModels.Any())
+                    {
+                        <select name="LlmModel" class="form-select form-select-sm font-monospace">
+                            <option value="">— pick a model —</option>
+                            @foreach (var m in Model.LlmModels)
+                            {
+                                <option value="@m" selected="@(m == Model.LlmCurrentModel ? "selected" : null)">@m</option>
+                            }
+                        </select>
+                        <div class="form-text">Models fetched from the LLM server on page load.</div>
+                    }
+                    else
+                    {
+                        <input name="LlmModel" value="@Model.LlmCurrentModel"
+                               class="form-control form-control-sm font-monospace"
+                               placeholder="e.g. llama3.2" autocomplete="off" />
+                        <div class="form-text text-warning">
+                            ⚠ LLM server unreachable — enter model name manually.
+                        </div>
+                    }
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label small mb-1 fw-semibold">System prompt</label>
+                    <textarea name="LlmSystemPromptInput" class="form-control form-control-sm font-monospace"
+                              rows="7">@Model.LlmSystemPrompt</textarea>
+                    <div class="form-text">Sent as the <code>system</code> message on every parse call.</div>
+                </div>
+            </div>
+            <div class="mt-3">
+                <button type="submit" class="btn btn-sm btn-primary">Save LLM settings</button>
+            </div>
+        </form>
     </div>
 </div>
 

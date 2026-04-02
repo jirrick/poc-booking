@@ -126,6 +126,7 @@ else
                     @foreach (var msg in Model.Messages)
                     {
                         var isProperty = msg.SenderType == "property" || msg.SenderType == "hotel";
+                        var isEmail = msg.MessageType == "email";
                         <div class="d-flex @(isProperty ? "justify-content-end" : "justify-content-start")">
                             <div class="chat-bubble @(isProperty ? "hotel" : "guest") rounded p-2" style="max-width:80%">
                                 <div class="msg-meta mb-1 d-flex align-items-center gap-1 flex-wrap">
@@ -147,8 +148,25 @@ else
                                     {
                                         <span class="badge bg-light text-muted border" style="font-size:.6rem">unread</span>
                                     }
+                                    @if (isEmail)
+                                    {
+                                        <button type="button"
+                                                class="btn btn-outline-info btn-sm py-0 px-1 ms-1 parse-btn"
+                                                data-msg-id="@msg.MessageId"
+                                                style="font-size:.65rem;line-height:1.4">🤖 Parse</button>
+                                    }
                                 </div>
-                                <div>@msg.Content</div>
+                                @if (isEmail)
+                                {
+                                    @* Injected JSON blob so JS can read multi-line content safely *@
+                                    <script type="application/json" id="content-@msg.MessageId">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(msg.Content))</script>
+                                    <div class="llm-result fw-semibold" style="display:none;white-space:pre-wrap"></div>
+                                    <div class="msg-body" style="white-space:pre-wrap">@msg.Content</div>
+                                }
+                                else
+                                {
+                                    <div style="white-space:pre-wrap">@msg.Content</div>
+                                }
                             </div>
                         </div>
                     }
@@ -173,8 +191,52 @@ else
 
 @section Scripts {
 <script>
+    // Scroll thread to bottom on load
     const thread = document.getElementById('chatThread');
     if (thread) thread.scrollTop = thread.scrollHeight;
+
+    // ── LLM email parse ────────────────────────────────────────────────────────
+    document.querySelectorAll('.parse-btn').forEach(btn => {
+        btn.addEventListener('click', async function () {
+            const msgId = this.dataset.msgId;
+            const contentEl = document.getElementById('content-' + msgId);
+            const content = JSON.parse(contentEl.textContent);
+
+            const bubble   = this.closest('.chat-bubble');
+            const resultEl = bubble.querySelector('.llm-result');
+            const bodyEl   = bubble.querySelector('.msg-body');
+
+            this.disabled = true;
+            this.textContent = '⏳…';
+
+            try {
+                const resp = await fetch('/api/llm/parse', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content })
+                });
+
+                if (resp.ok) {
+                    const data = await resp.json();
+                    resultEl.textContent = data.parsed;
+                    resultEl.style.display = '';
+                    // Keep original text but make it visually secondary
+                    bodyEl.classList.add('text-muted', 'mt-2', 'pt-2', 'border-top');
+                    bodyEl.style.fontSize = '.78rem';
+                    this.remove();
+                } else {
+                    const err = await resp.json().catch(() => ({}));
+                    this.disabled = false;
+                    this.textContent = '🤖 Parse';
+                    alert('Parse failed: ' + (err.error ?? resp.statusText));
+                }
+            } catch (e) {
+                this.disabled = false;
+                this.textContent = '🤖 Parse';
+                console.error(e);
+            }
+        });
+    });
 </script>
 }
 
