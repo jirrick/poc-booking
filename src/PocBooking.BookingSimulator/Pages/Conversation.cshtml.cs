@@ -10,11 +10,13 @@ public class ConversationModel : PageModel
 {
     private readonly SimulatorDbContext _db;
     private readonly IPocWebhookSender _webhookSender;
+    private readonly BookingMessageTestGenerator _generator;
 
-    public ConversationModel(SimulatorDbContext db, IPocWebhookSender webhookSender)
+    public ConversationModel(SimulatorDbContext db, IPocWebhookSender webhookSender, BookingMessageTestGenerator generator)
     {
         _db = db;
         _webhookSender = webhookSender;
+        _generator = generator;
     }
 
     public string PropertyId { get; set; } = "";
@@ -105,6 +107,68 @@ public class ConversationModel : PageModel
         await _db.SaveChangesAsync(ct);
         await _webhookSender.SendNewMessageNotificationAsync(message, ct);
         TempData["Success"] = $"Sent as {sender.Name} ({sender.ParticipantType}).";
+        return RedirectToPage(new { propertyId, conversationId });
+    }
+
+    public async Task<IActionResult> OnPostSendEmailSimAsync(
+        string propertyId, string conversationId, CancellationToken ct = default)
+    {
+        var (conv, prop) = await LoadAsync(propertyId, conversationId, ct);
+        if (conv == null || prop == null) return NotFound();
+
+        Participant? sender = null;
+        if (conv.GuestParticipantId.HasValue)
+            sender = await _db.Participants.FindAsync([conv.GuestParticipantId.Value], ct);
+        sender ??= await _db.Participants
+            .FirstOrDefaultAsync(p => p.PropertyId == prop.Id && p.ParticipantType == "guest", ct);
+
+        if (sender == null)
+        {
+            TempData["Error"] = "No guest participant found.";
+            return RedirectToPage(new { propertyId, conversationId });
+        }
+
+        // Mark all unread hotel messages as read (guest is responding)
+        var hotelParticipantIds = await _db.Participants
+            .Where(p => p.PropertyId == prop.Id && p.ParticipantType == "hotel")
+            .Select(p => p.Id)
+            .ToListAsync(ct);
+        var unreadHotelMessages = await _db.Messages
+            .Where(m => m.ConversationId == conv.Id && !m.IsRead && hotelParticipantIds.Contains(m.SenderParticipantId))
+            .ToListAsync(ct);
+        foreach (var m in unreadHotelMessages)
+            m.IsRead = true;
+
+        var generated = _generator.Generate();
+        var now = DateTime.UtcNow;
+
+        var freeTextMessage = new Message
+        {
+            MessageId = Guid.NewGuid().ToString(),
+            Content = generated.ExpectedText,
+            MessageType = "free_text",
+            TimestampUtc = now,
+            ConversationId = conv.Id,
+            SenderParticipantId = sender.Id,
+        };
+        var emailMessage = new Message
+        {
+            MessageId = Guid.NewGuid().ToString(),
+            Content = generated.FullText,
+            MessageType = "email",
+            TimestampUtc = now.AddMilliseconds(1),
+            ConversationId = conv.Id,
+            SenderParticipantId = sender.Id,
+        };
+
+        _db.Messages.Add(freeTextMessage);
+        _db.Messages.Add(emailMessage);
+        await _db.SaveChangesAsync(ct);
+
+        await _webhookSender.SendNewMessageNotificationAsync(freeTextMessage, ct);
+        await _webhookSender.SendNewMessageNotificationAsync(emailMessage, ct);
+
+        TempData["Success"] = "Sent simulated email pair (free_text + email).";
         return RedirectToPage(new { propertyId, conversationId });
     }
 

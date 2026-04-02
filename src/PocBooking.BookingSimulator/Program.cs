@@ -18,6 +18,7 @@ builder.Services.AddSingleton<IPocWebhookJwtFactory, PocWebhookJwtFactory>();
 builder.Services.AddScoped<IPocWebhookSender, PocWebhookSender>();
 builder.Services.Configure<ConnectivityAuthOptions>(builder.Configuration.GetSection(ConnectivityAuthOptions.SectionName));
 builder.Services.AddSingleton<SimulatorRsaKeyProvider>();
+builder.Services.AddSingleton<BookingMessageTestGenerator>();
 
 // JWT bearer auth — validates tokens issued by our own /token-based-authentication/exchange endpoint.
 // Key is resolved lazily from the singleton SimulatorRsaKeyProvider so startup order doesn't matter.

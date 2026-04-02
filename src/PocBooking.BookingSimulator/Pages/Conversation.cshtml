@@ -86,5 +86,14 @@ else
                 <button type="submit" class="btn btn-warning fw-semibold">Send</button>
             </div>
         </form>
+        <form method="post" asp-page-handler="SendEmailSim"
+              asp-route-propertyId="@Model.PropertyId"
+              asp-route-conversationId="@Model.ConversationId"
+              class="mt-2">
+            <button type="submit" class="btn btn-outline-secondary btn-sm w-100"
+                    title="Generates a random email-like guest message and sends it as two messages: the extracted text (free_text) and the full raw email body (email).">
+                📧 Send random email sim <span class="text-muted">(free_text + email)</span>
+            </button>
+        </form>
     </div>
 </div>
