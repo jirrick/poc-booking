@@ -411,6 +411,121 @@ No code changes are required. All Messaging API endpoints consumed by the POC �
 
 ---
 
+## Known issue: email-reply message content pollution
+
+Booking.com allows guests to reply to conversation messages **by replying to a notification email** rather than through the Booking.com website or app. When this happens, the raw email body — including quoted history, email headers, and Booking.com footers — is passed through verbatim as the `content` field of the message. The POC (and any production system consuming the Messaging API) receives the full polluted string with no pre-processing.
+
+### Why it matters
+
+The communication platform will need to store, display, and potentially act on this content. Showing the raw email dump to hotel staff degrades the experience significantly and makes automated processing (routing, intent detection, translation) much harder.
+
+### Observed variations (tested April 2026)
+
+Testing with a real Booking.com test property and an Outlook email client revealed four distinct shapes of content depending on what the guest does with the notification email before replying.
+
+#### 1 — Clean reply (guest deletes subject and all quoted content)
+
+The simplest case. The content field contains only the guest's actual words.
+
+```
+Reply from guest who deleted all the quoted body and also subject
+```
+
+#### 2 — Subject line kept, quoted body deleted
+
+The email subject becomes a prefix line before the actual reply text.
+
+```
+Re: You have a message from Test Hotel for Mews (1432)
+
+This is a reply where I've kept the subject but deleted the quoted body
+```
+
+Pattern: first line is `Re: You have a message from <property name>`, followed by a blank line, followed by the reply.
+
+#### 3 — Subject deleted, quoted body kept
+
+The guest deleted the `Re:` subject line but left the entire original email body inline. The result contains the previous hotel message quoted inside the Booking.com notification template, plus Outlook-style email headers (sender, recipient, sent date, subject — potentially in **any language**), a reservation detail block, legal boilerplate, and a `References` section with URLs.
+
+```
+Reply where I've deleted the subject but kept the quoted body
+Od: Test Hotel for Mews (1432) through Booking.com
+<example@property.booking.com>
+Odesláno: čtvrtek 2. dubna 2026 11:22
+Komu: guest@example.com <guest@example.com>
+Předmět: You have a message from Test Hotel for Mews (1432)
+
+[1]booking.com            Confirmation number: [2]123456789
+
+You have a new message from Test Hotel for Mews (1432)
+
+Test Hotel for Mews (1432) said:
+
+ Ok, less clean, now delete subject but keep the body
+
+...
+
+References
+
+   Visible links
+   1. [link removed]
+   2. https://secure.booking.com/myreservations.html?bn=123456789
+   ...
+```
+
+Key observations:
+- Outlook header field labels (`Od:`, `Odesláno:`, `Komu:`, `Předmět:`) are **localised** — Czech in this example but could be any language.
+- The quoted hotel message text appears verbatim inside the notification template.
+- A `References` / `Visible links` block with numbered footnote-style links appears at the end (from a plain-text email renderer such as `w3m`/`lynx`).
+- URLs inside the body are replaced by numbered anchors (`[1]`, `[2]`, …) with the actual URLs listed at the bottom.
+
+#### 4 — Subject kept, full quoted body kept
+
+The noisiest case. Both the `Re:` subject line **and** the full email body are present.
+
+```
+Re: You have a message from Test Hotel for Mews (1432)
+
+Just lazy response from Outlook keeping everything in
+
+[1]booking.com            Confirmation number: [2]123456789
+
+You have a new message from Test Hotel for Mews (1432)
+
+Test Hotel for Mews (1432) said:
+
+ Yeah, pretty bad. Now just add response and don't change
+ anything
+
+Just now
+
+ Please respond to the property by replying to this email.
+
+Most recent messages
+Test Hotel for Mews (1432)
+Reply where I've deleted the subject but kept the quoted body
+...
+
+References
+
+   Visible links
+   1. [link removed]
+   2. https://secure.booking.com/myreservations.html?bn=123456789
+```
+
+### Extraction challenges
+
+| Challenge | Detail |
+|-----------|--------|
+| **Language-agnostic header parsing** | Outlook (and other clients) localise header field names (`From:`, `Sent:`, `To:`, `Subject:` → `Od:`, `Odesláno:`, `Komu:`, `Předmět:` in Czech). A parser cannot rely on English keyword matching. |
+| **No structural delimiter** | There is no machine-readable boundary between the guest's actual reply and the quoted content. The only heuristics available are: blank-line separation, known Booking.com template phrases, and the `References` / `Visible links` footer. |
+| **Template phrases in any language** | The Booking.com notification body (`"You have a new message from …"`, `"Please respond to the property by replying to this email."`) is sent in the guest's preferred language; these cannot be used as reliable English-only anchors. |
+| **Numbered link anchors** | URLs in the notification body are replaced by `[N]` anchors by the plain-text email renderer. The actual URL list at the bottom must be stripped or parsed separately. |
+| **Recursive quoting** | A long thread where the guest replies via email multiple times accumulates multiple layers of quoted content. Each layer includes the full Booking.com notification template for that turn. |
+| **Entirely unpredictable content** | Some guests may include signatures, forwarded blocks, or other arbitrary text that does not match any known pattern. |
+
+---
+
 ## References
 
 - [Booking.com Connectivity Notification Service](https://developers.booking.com/connectivity/docs/notification-service/notification-service-overview)
