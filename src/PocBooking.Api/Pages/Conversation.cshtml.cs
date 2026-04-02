@@ -63,6 +63,8 @@ public class ConversationModel(IBookingApiClient bookingApi, IConversationMappin
                 SenderType = senderType,
                 SenderParticipantId = m.SenderId ?? "",
                 IsRead = m.Tags?.Read?.Set ?? false,
+                GuestName = senderType == "guest" ? sender?.Metadata?.Name : null,
+                MessageType = m.MessageType,
             });
         }
 
@@ -153,5 +155,9 @@ public class ConversationModel(IBookingApiClient bookingApi, IConversationMappin
         public string SenderType { get; set; } = "";
         public string SenderParticipantId { get; set; } = "";
         public bool IsRead { get; set; }
+        /// <summary>Guest display name from Booking.com v1.2 participant metadata. Null when not available.</summary>
+        public string? GuestName { get; set; }
+        /// <summary>Message type from Booking.com v1.2: free_text, email, automatically_sent_template, etc.</summary>
+        public string? MessageType { get; set; }
     }
 }

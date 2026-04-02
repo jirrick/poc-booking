@@ -130,7 +130,15 @@ else
                             <div class="chat-bubble @(isProperty ? "hotel" : "guest") rounded p-2" style="max-width:80%">
                                 <div class="msg-meta mb-1 d-flex align-items-center gap-1 flex-wrap">
                                     <span class="badge @(isProperty ? "bg-secondary" : "bg-warning text-dark")" style="font-size:.65rem">@msg.SenderType</span>
+                                    @if (!string.IsNullOrEmpty(msg.GuestName))
+                                    {
+                                        <span class="fw-semibold" style="font-size:.8rem">@msg.GuestName</span>
+                                    }
                                     <span class="text-muted" style="font-size:.75rem">@msg.TimestampUtc.ToString("yyyy-MM-dd HH:mm") UTC</span>
+                                    @if (!string.IsNullOrEmpty(msg.MessageType))
+                                    {
+                                        <span class="badge bg-light text-secondary border" style="font-size:.6rem">@msg.MessageType.Replace('_', ' ')</span>
+                                    }
                                     @if (msg.IsRead)
                                     {
                                         <span class="badge bg-success" style="font-size:.6rem" title="Read">✓✓ read</span>
