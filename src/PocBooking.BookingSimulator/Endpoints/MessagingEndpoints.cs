@@ -58,42 +58,110 @@ public static class MessagingEndpoints
         return "UmFuZG9tSVYkc2RlIyh9Y" + Convert.ToBase64String(bytes);
     }
 
-    private static object MapParticipant(Participant p, string propertyExternalId)
+    private static bool IsV12(HttpContext ctx) =>
+        ctx.Request.Headers.TryGetValue("Accept-Version", out var v) && v == "1.2";
+
+    private static object MapParticipant(Participant p, string propertyExternalId, bool v12 = false)
     {
         if (p.ParticipantType is "hotel" or "property")
             return new { participant_id = p.ParticipantId, metadata = new { type = "property", id = propertyExternalId } };
+        if (v12)
+            return new { participant_id = p.ParticipantId, metadata = new { type = "guest", name = p.Name } };
         return new { participant_id = p.ParticipantId, metadata = new { type = "guest" } };
     }
 
-    // List endpoint: sender_id string, attachment_files_uuid, no tags, no message_type
-    private static object MapMessageForList(Message m) => new
+    // List endpoint: sender_id string, attachment_files_uuid, no tags
+    private static object MapMessageForList(Message m, bool v12 = false)
     {
-        message_id = m.MessageId,
-        timestamp = m.TimestampUtc.ToString("O"),
-        sender_id = m.Sender.ParticipantId,
-        content = m.Content,
-        attachment_files_uuid = Array.Empty<string>()
-    };
+        if (v12)
+            return new
+            {
+                message_id = m.MessageId,
+                message_type = m.MessageType,
+                timestamp = m.TimestampUtc.ToString("O"),
+                sender_id = m.Sender.ParticipantId,
+                content = m.Content,
+                attachment_files_uuid = Array.Empty<string>()
+            };
+        return new
+        {
+            message_id = m.MessageId,
+            timestamp = m.TimestampUtc.ToString("O"),
+            sender_id = m.Sender.ParticipantId,
+            content = m.Content,
+            attachment_files_uuid = Array.Empty<string>()
+        };
+    }
 
-    // Detail endpoint: sender_id string, attachment_ids, tags.read, no message_type
-    private static object MapMessageForDetail(Message m) => new
+    // Detail endpoint: sender_id string, attachment_ids, tags.read
+    private static object MapMessageForDetail(Message m, bool v12 = false)
     {
-        message_id = m.MessageId,
-        timestamp = m.TimestampUtc.ToString("O"),
-        sender_id = m.Sender.ParticipantId,
-        content = m.Content,
-        attachment_ids = Array.Empty<string>(),
-        tags = new { read = new { set = m.IsRead } }
-    };
+        if (v12)
+            return new
+            {
+                message_id = m.MessageId,
+                message_type = m.MessageType,
+                timestamp = m.TimestampUtc.ToString("O"),
+                sender_id = m.Sender.ParticipantId,
+                content = m.Content,
+                attachment_ids = Array.Empty<string>(),
+                tags = new { read = new { set = m.IsRead } }
+            };
+        return new
+        {
+            message_id = m.MessageId,
+            timestamp = m.TimestampUtc.ToString("O"),
+            sender_id = m.Sender.ParticipantId,
+            content = m.Content,
+            attachment_ids = Array.Empty<string>(),
+            tags = new { read = new { set = m.IsRead } }
+        };
+    }
+
+    // Search endpoint: attachment_ids, tags.read, conversation object
+    private static object MapMessageForSearch(Message m, bool v12 = false)
+    {
+        var conv = new
+        {
+            property_id = m.Conversation.Property.PropertyId,
+            conversation_id = m.Conversation.ConversationId,
+            conversation_reference = m.Conversation.ConversationReference,
+            conversation_type = m.Conversation.ConversationType
+        };
+        if (v12)
+            return new
+            {
+                message_id = m.MessageId,
+                message_type = m.MessageType,
+                timestamp = m.TimestampUtc.ToString("O"),
+                sender_id = m.Sender.ParticipantId,
+                content = m.Content,
+                attachment_ids = Array.Empty<string>(),
+                tags = new { read = new { set = false } },
+                conversation = conv
+            };
+        return new
+        {
+            message_id = m.MessageId,
+            timestamp = m.TimestampUtc.ToString("O"),
+            sender_id = m.Sender.ParticipantId,
+            content = m.Content,
+            attachment_ids = Array.Empty<string>(),
+            tags = new { read = new { set = false } },
+            conversation = conv
+        };
+    }
 
     // ── Endpoint handlers ─────────────────────────────────────────────────────
 
     private static async Task<IResult> GetConversations(
         string propertyId,
         [FromQuery] string? page_id,
+        HttpContext httpContext,
         SimulatorDbContext db,
         CancellationToken ct)
     {
+        var v12 = IsV12(httpContext);
 
         var property = await db.Properties.FirstOrDefaultAsync(p => p.PropertyId == propertyId, ct);
         if (property == null) return Results.NotFound();
@@ -133,8 +201,8 @@ public static class MessagingEndpoints
                 conversation_type = c.ConversationType,
                 access = "read_write",
                 tags = new { no_reply_needed = new { set = c.NoReplyNeeded } },
-                messages = messages.Select(MapMessageForList).ToList(),
-                participants = allParticipants.Select(p => MapParticipant(p, property.PropertyId)).ToList()
+                messages = messages.Select(m => MapMessageForList(m, v12)).ToList(),
+                participants = allParticipants.Select(p => MapParticipant(p, property.PropertyId, v12)).ToList()
             });
         }
 
@@ -149,9 +217,11 @@ public static class MessagingEndpoints
     private static async Task<IResult> GetConversation(
         string propertyId,
         string conversationId,
+        HttpContext httpContext,
         SimulatorDbContext db,
         CancellationToken ct)
     {
+        var v12 = IsV12(httpContext);
 
         var property = await db.Properties.FirstOrDefaultAsync(p => p.PropertyId == propertyId, ct);
         if (property == null) return Results.NotFound();
@@ -174,8 +244,8 @@ public static class MessagingEndpoints
                 conversation_type = conv.ConversationType,
                 access = "read_write",
                 tags = new { no_reply_needed = new { set = conv.NoReplyNeeded } },
-                messages = conv.Messages.Select(MapMessageForDetail).ToList(),
-                participants = participants.Select(p => MapParticipant(p, property.PropertyId)).ToList()
+                messages = conv.Messages.Select(m => MapMessageForDetail(m, v12)).ToList(),
+                participants = participants.Select(p => MapParticipant(p, property.PropertyId, v12)).ToList()
             },
             ok = true
         });
@@ -270,9 +340,11 @@ public static class MessagingEndpoints
     private static async Task<IResult> GetMessageSearchResult(
         string jobId,
         [FromQuery] string? page_id,
+        HttpContext httpContext,
         SimulatorDbContext db,
         CancellationToken ct)
     {
+        var v12 = IsV12(httpContext);
 
         var job = await db.MessageSearchJobs.FirstOrDefaultAsync(j => j.JobId == jobId, ct);
         if (job == null) return Results.NotFound();
@@ -303,22 +375,7 @@ public static class MessagingEndpoints
         if (hasMore) messages = messages.Take(DefaultPageSize).ToList();
         var nextPageId = hasMore ? (offset + DefaultPageSize).ToString() : null;
 
-        var list = messages.Select(m => new
-        {
-            message_id = m.MessageId,
-            timestamp = m.TimestampUtc.ToString("O"),
-            sender_id = m.Sender.ParticipantId,
-            content = m.Content,
-            attachment_ids = Array.Empty<string>(),
-            tags = new { read = new { set = false } },
-            conversation = new
-            {
-                property_id = m.Conversation.Property.PropertyId,
-                conversation_id = m.Conversation.ConversationId,
-                conversation_reference = m.Conversation.ConversationReference,
-                conversation_type = m.Conversation.ConversationType
-            }
-        }).ToList();
+        var list = messages.Select(m => MapMessageForSearch(m, v12)).ToList();
 
         return Envelope(new
         {

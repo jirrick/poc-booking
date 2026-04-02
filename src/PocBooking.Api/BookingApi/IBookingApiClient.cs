@@ -59,6 +59,8 @@ public sealed class ConversationDetailResponse
 public sealed class MessageSummary
 {
     public string? MessageId { get; set; }
+    /// <summary>v1.2+: free_text, email, automatically_sent_template, self_service_event, request_to_book_event</summary>
+    public string? MessageType { get; set; }
     public string? Timestamp { get; set; }
     public string? Content { get; set; }
     /// <summary>Flat participant UUID — use Participants list to resolve name/type.</summary>
@@ -80,6 +82,8 @@ public sealed class ParticipantMetadata
     public string? Type { get; set; }
     /// <summary>Property ID — only present for type=property.</summary>
     public string? Id { get; set; }
+    /// <summary>v1.2+: Guest display name — only present for type=guest.</summary>
+    public string? Name { get; set; }
 }
 
 // ── Tags ──────────────────────────────────────────────────────────────────────

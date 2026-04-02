@@ -20,6 +20,7 @@ public sealed class BookingApiClient : IBookingApiClient
         var baseUrl = options.Value.ApiBaseUrl?.TrimEnd('/');
         if (!string.IsNullOrEmpty(baseUrl))
             _http.BaseAddress = new Uri(baseUrl);
+        _http.DefaultRequestHeaders.Add("Accept-Version", "1.2");
         // Authorization is injected dynamically by BookingAuthHandler
     }
 
