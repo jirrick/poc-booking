@@ -100,11 +100,12 @@ else
                 </a>
             }
         </div>
-        @if (!string.IsNullOrEmpty(Model.NextPageId))
-        {
-            <a asp-page="/Conversations" asp-route-propertyId="@Model.PropertyId" asp-route-pageId="@Model.NextPageId"
-               class="btn btn-outline-primary btn-sm mb-3">Next page →</a>
-        }
+    }
+
+    @if (!string.IsNullOrEmpty(Model.NextPageId))
+    {
+        <a asp-page="/Conversations" asp-route-propertyId="@Model.PropertyId" asp-route-pageId="@Model.NextPageId"
+           class="btn btn-outline-primary btn-sm mb-3">Next page →</a>
     }
 
     @* ── Unstarted conversations (no messages yet — property initiates) ── *@
