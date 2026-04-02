@@ -11,10 +11,12 @@ using PocBooking.Api.Processing;
 var builder = WebApplication.CreateBuilder(args);
 
 // ASP.NET Core auto-loads user secrets only for "Development".
-// Explicitly opt-in for every non-Production environment so that custom
-// environment names like "BookingLive" also get secrets from the local store.
-if (!builder.Environment.IsProduction())
+// The local profile uses the "Simulator" environment, so secrets are never
+// loaded automatically. Explicitly opt-in only for "BookingLive".
+if (builder.Environment.IsEnvironment("BookingLive"))
+{
     builder.Configuration.AddUserSecrets<Program>(optional: true, reloadOnChange: false);
+}
 
 builder.Services.Configure<CnsJwtOptions>(builder.Configuration.GetSection(CnsJwtOptions.SectionName));
 builder.Services.AddSingleton<ICnsSignatureValidator, CnsJwtSignatureValidator>();
