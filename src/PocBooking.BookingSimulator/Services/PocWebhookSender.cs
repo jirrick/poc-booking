@@ -11,6 +11,7 @@ public sealed class PocWebhookSender(
     IConfiguration config,
     IDbContextFactory<SimulatorDbContext> dbFactory,
     IPocWebhookJwtFactory jwtFactory,
+    IOAuthTokenProvider oauthTokenProvider,
     ILogger<PocWebhookSender> logger) : IPocWebhookSender
 {
     private static readonly JsonSerializerOptions JsonOptions = new();
@@ -34,16 +35,23 @@ public sealed class PocWebhookSender(
 
     public async Task SendPayloadAsync(CnsWebhookPayload payload, CancellationToken cancellationToken = default)
     {
-        var baseUrl = config["BookingSimulator:PocWebhookBaseUrl"]?.TrimEnd('/');
-        if (string.IsNullOrEmpty(baseUrl))
+        // Use OAuth webhook URL if configured; otherwise fall back to PocWebhookBaseUrl pattern
+        var webhookUrl = config["BookingSimulator:OAuthWebhook:WebhookUrl"]?.TrimEnd('/');
+        if (string.IsNullOrEmpty(webhookUrl))
         {
-            logger.LogDebug("PocWebhookBaseUrl not set; skipping webhook.");
-            return;
+            var baseUrl = config["BookingSimulator:PocWebhookBaseUrl"]?.TrimEnd('/');
+            if (string.IsNullOrEmpty(baseUrl))
+            {
+                logger.LogDebug("No webhook URL configured; skipping webhook.");
+                return;
+            }
+            webhookUrl = $"{baseUrl}/api/webhooks/booking/cns";
         }
 
-        var webhookUrl = $"{baseUrl}/api/webhooks/booking/cns";
-        // When JWT config is set (JwtSigningKey, JwtIssuer, JwtAudience), use real JWT; otherwise fallback to opaque PocBearerToken
-        var bearerToken = jwtFactory.CreateBearerToken() ?? config["BookingSimulator:PocBearerToken"];
+        // Try OAuth token first; fall back to JWT or opaque bearer token
+        var bearerToken = await oauthTokenProvider.GetAccessTokenAsync(cancellationToken)
+            ?? jwtFactory.CreateBearerToken()
+            ?? config["BookingSimulator:PocBearerToken"];
 
         using var client = httpClientFactory.CreateClient();
         var request = new HttpRequestMessage(HttpMethod.Post, webhookUrl)

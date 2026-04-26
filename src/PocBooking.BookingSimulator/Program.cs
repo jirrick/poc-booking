@@ -15,6 +15,8 @@ builder.Services.AddDbContextFactory<SimulatorDbContext>(options => options.UseS
 builder.Services.AddScoped<SimulatorDbContext>(sp => sp.GetRequiredService<IDbContextFactory<SimulatorDbContext>>().CreateDbContext());
 builder.Services.Configure<PocWebhookJwtOptions>(builder.Configuration.GetSection(PocWebhookJwtOptions.SectionName));
 builder.Services.AddSingleton<IPocWebhookJwtFactory, PocWebhookJwtFactory>();
+builder.Services.Configure<OAuthWebhookOptions>(builder.Configuration.GetSection(OAuthWebhookOptions.SectionName));
+builder.Services.AddSingleton<IOAuthTokenProvider, OAuthTokenProvider>();
 builder.Services.AddScoped<IPocWebhookSender, PocWebhookSender>();
 builder.Services.Configure<ConnectivityAuthOptions>(builder.Configuration.GetSection(ConnectivityAuthOptions.SectionName));
 builder.Services.AddSingleton<SimulatorRsaKeyProvider>();
