@@ -13,15 +13,32 @@ public sealed class ApiRequestLoggingMiddleware(RequestDelegate next, ApiRequest
     public async Task InvokeAsync(HttpContext context)
     {
         var path = context.Request.Path.Value ?? "";
-        var shouldLog =
+        var isApiPath =
             path.StartsWith("/messaging", StringComparison.OrdinalIgnoreCase) ||
             path.StartsWith("/token-based-authentication", StringComparison.OrdinalIgnoreCase) ||
             path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(path, "/api", StringComparison.OrdinalIgnoreCase);
 
-        if (!shouldLog)
+        // For non-API paths we still want to capture errors — run pipeline first, then decide.
+        if (!isApiPath)
         {
+            var sw0 = Stopwatch.StartNew();
             await next(context);
+            sw0.Stop();
+
+            if (context.Response.StatusCode >= 400)
+            {
+                store.Add(new ApiRequestLogEntry
+                {
+                    Timestamp = DateTimeOffset.UtcNow,
+                    Method = context.Request.Method,
+                    Path = path,
+                    QueryString = context.Request.QueryString.HasValue ? context.Request.QueryString.Value : null,
+                    StatusCode = context.Response.StatusCode,
+                    ElapsedMs = sw0.ElapsedMilliseconds,
+                    RequestHeaders = new Dictionary<string, string>()
+                });
+            }
             return;
         }
 
@@ -67,6 +84,7 @@ public sealed class ApiRequestLoggingMiddleware(RequestDelegate next, ApiRequest
         return value;
     }
 }
+
 
 
 
