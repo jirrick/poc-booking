@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using PocBooking.BookingSimulator;
 using PocBooking.BookingSimulator.Data;
 using PocBooking.BookingSimulator.Endpoints;
 using PocBooking.BookingSimulator.Models;
@@ -21,6 +22,7 @@ builder.Services.AddScoped<IPocWebhookSender, PocWebhookSender>();
 builder.Services.Configure<ConnectivityAuthOptions>(builder.Configuration.GetSection(ConnectivityAuthOptions.SectionName));
 builder.Services.AddSingleton<SimulatorRsaKeyProvider>();
 builder.Services.AddSingleton<BookingMessageTestGenerator>();
+builder.Services.AddSingleton<ApiRequestLogStore>();
 
 // JWT bearer auth — validates tokens issued by our own /token-based-authentication/exchange endpoint.
 // Key is resolved lazily from the singleton SimulatorRsaKeyProvider so startup order doesn't matter.
@@ -54,6 +56,7 @@ await using (var db = app.Services.GetRequiredService<IDbContextFactory<Simulato
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+app.UseMiddleware<ApiRequestLoggingMiddleware>();
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();

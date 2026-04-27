@@ -1,0 +1,110 @@
+@page "/api-log"
+@model ApiLogModel
+@{
+    ViewData["Title"] = "API Request Log";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0">📋 Incoming API Request Log <span class="badge bg-secondary">@Model.Entries.Count</span></h5>
+    <div class="d-flex gap-2 align-items-center">
+        <span class="text-muted small">Auto-refreshes every 5 s</span>
+        <form method="post" asp-page-handler="Clear">
+            <button class="btn btn-outline-danger btn-sm">🗑 Clear</button>
+        </form>
+    </div>
+</div>
+
+@if (Model.Entries.Count == 0)
+{
+    <div class="alert alert-info">No API requests logged yet. Make some calls to the simulator endpoints.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle" style="font-size:.82rem">
+            <thead class="table-dark">
+                <tr>
+                    <th>Time (UTC)</th>
+                    <th>Method</th>
+                    <th>Path</th>
+                    <th>Status</th>
+                    <th>ms</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var e in Model.Entries)
+                {
+                    var rowId = "entry-" + e.GetHashCode().ToString("x");
+                    var statusClass = e.StatusCode >= 500 ? "table-danger"
+                                    : e.StatusCode >= 400 ? "table-warning"
+                                    : e.StatusCode >= 300 ? "table-info"
+                                    : "";
+                    var methodBadge = e.Method switch {
+                        "GET"    => "bg-success",
+                        "POST"   => "bg-primary",
+                        "PUT"    => "bg-warning text-dark",
+                        "DELETE" => "bg-danger",
+                        _        => "bg-secondary"
+                    };
+
+                    <tr class="@statusClass">
+                        <td class="text-nowrap">@e.Timestamp.ToString("HH:mm:ss.fff")</td>
+                        <td><span class="badge @methodBadge">@e.Method</span></td>
+                        <td>
+                            <span class="font-monospace">@e.Path</span>
+                            @if (!string.IsNullOrEmpty(e.QueryString))
+                            {
+                                <span class="text-muted font-monospace">@e.QueryString</span>
+                            }
+                        </td>
+                        <td><span class="badge @(e.StatusCode >= 400 ? "bg-danger" : "bg-success")">@e.StatusCode</span></td>
+                        <td>@e.ElapsedMs</td>
+                        <td>
+                            @if (e.RequestHeaders.Count > 0 || !string.IsNullOrEmpty(e.RequestBody))
+                            {
+                                <button class="btn btn-outline-secondary btn-sm py-0" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#@rowId">
+                                    detail
+                                </button>
+                            }
+                        </td>
+                    </tr>
+                    @if (e.RequestHeaders.Count > 0 || !string.IsNullOrEmpty(e.RequestBody))
+                    {
+                        <tr class="collapse @statusClass" id="@rowId">
+                            <td colspan="6">
+                                <div class="p-2">
+                                    @if (e.RequestHeaders.Count > 0)
+                                    {
+                                        <div class="mb-1 fw-semibold text-muted small">Headers</div>
+                                        <table class="table table-sm table-borderless mb-2" style="font-size:.78rem">
+                                            @foreach (var h in e.RequestHeaders)
+                                            {
+                                                <tr>
+                                                    <td class="font-monospace text-muted pe-3" style="width:200px">@h.Key</td>
+                                                    <td class="font-monospace">@h.Value</td>
+                                                </tr>
+                                            }
+                                        </table>
+                                    }
+                                    @if (!string.IsNullOrEmpty(e.RequestBody))
+                                    {
+                                        <div class="mb-1 fw-semibold text-muted small">Body</div>
+                                        <pre class="bg-light border rounded p-2 mb-0" style="max-height:200px;overflow-y:auto;font-size:.78rem">@e.RequestBody</pre>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<script>
+    // Auto-refresh every 5 seconds
+    setTimeout(() => location.reload(), 5000);
+</script>
+
