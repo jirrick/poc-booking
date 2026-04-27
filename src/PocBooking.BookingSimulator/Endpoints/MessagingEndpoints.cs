@@ -23,6 +23,8 @@ public static class MessagingEndpoints
             .WithName("GetConversations");
         group.MapGet("/properties/{propertyId}/conversations/{conversationId}", GetConversation)
             .WithName("GetConversation");
+        group.MapGet("/properties/{propertyId}/conversations/type/{conversationType}", GetConversationByType)
+            .WithName("GetConversationByType");
         group.MapPost("/properties/{propertyId}/conversations/{conversationId}", PostMessage)
             .WithName("PostMessage");
         group.MapGet("/messages/search", CreateMessageSearchJob)
@@ -211,6 +213,67 @@ public static class MessagingEndpoints
             conversations = list,
             ok = true,
             next_page_id = nextPageId
+        });
+    }
+
+    private static async Task<IResult> GetConversationByType(
+        string propertyId,
+        string conversationType,
+        [FromQuery] string? conversation_reference,
+        [FromQuery] string? page_id,
+        HttpContext httpContext,
+        SimulatorDbContext db,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrEmpty(conversation_reference))
+            return Results.Json(new { errors = new[] { new { code = "MISSING_PARAMETER", message = "conversation_reference is required" } } }, statusCode: 400);
+
+        var v12 = IsV12(httpContext);
+
+        var property = await db.Properties.FirstOrDefaultAsync(p => p.PropertyId == propertyId, ct);
+        if (property == null) return Results.NotFound();
+
+        var conv = await db.Conversations
+            .FirstOrDefaultAsync(c =>
+                c.PropertyId == property.Id &&
+                c.ConversationType == conversationType &&
+                c.ConversationReference == conversation_reference, ct);
+        if (conv == null) return Results.NotFound();
+
+        var participants = await db.Participants
+            .Where(p => p.PropertyId == property.Id)
+            .ToListAsync(ct);
+
+        var offset = 0;
+        if (!string.IsNullOrEmpty(page_id) && int.TryParse(page_id, out var parsedOffset))
+            offset = parsedOffset;
+
+        // Messages in descending order (most recent first) per API spec
+        var messages = await db.Messages
+            .Where(m => m.ConversationId == conv.Id)
+            .OrderByDescending(m => m.TimestampUtc)
+            .Skip(offset)
+            .Take(DefaultPageSize + 1)
+            .Include(m => m.Sender)
+            .ToListAsync(ct);
+
+        var hasMore = messages.Count > DefaultPageSize;
+        if (hasMore) messages = messages.Take(DefaultPageSize).ToList();
+        var nextPageId = hasMore ? (offset + DefaultPageSize).ToString() : null;
+
+        return Envelope(new
+        {
+            conversation = new
+            {
+                conversation_type = conv.ConversationType,
+                access = "read_write",
+                conversation_id = conv.ConversationId,
+                participants = participants.Select(p => MapParticipant(p, property.PropertyId, v12)).ToList(),
+                messages = messages.Select(m => MapMessageForDetail(m, v12)).ToList(),
+                conversation_reference = conv.ConversationReference,
+                next_page_id = nextPageId
+            },
+            ok = "true"
         });
     }
 
